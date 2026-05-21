@@ -118,7 +118,7 @@ flowchart TD
 | Q1 | 모노레포 도구 (Turborepo vs Nx)   | ✅ ADR-0001 Accepted (Turborepo) | 2026-05-22 확정              |
 | Q2 | 백엔드 호스팅 (Railway vs Fly.io) | 미정, ADR-0002 작성 예정   | 4.3 CI 셋업 후, 4.4 직전     |
 | Q3 | Node 버전 + pnpm 버전 고정 정책   | 미정                       | 4.1 모노레포 셋업 시         |
-| Q4 | Conventional Commits 강제 도구 (commitlint, husky) | 미정          | 4.2 코드 품질 셋업 시        |
+| Q4 | 커밋 컨벤션 (형식 + 강제 도구)    | ✅ 형식: prefix(영어) + 본문(한글) 확정 (2026-05-22). ⏳ commitlint/husky 도입: 미정 | 도구는 4.2 코드 품질 셋업 시 결정 |
 | Q5 | 모노레포 패키지명 prefix (`@trailog/*`) | 미정                  | 4.1 모노레포 셋업 시         |
 | Q6 | Android 테스트 디바이스 (실기기 vs 에뮬레이터) | 미정             | 4.5 모바일 빌드 직전         |
 
@@ -139,3 +139,4 @@ flowchart TD
 | 날짜       | 변경 내용                                                 |
 | ---------- | --------------------------------------------------------- |
 | 2026-05-22 | 최초 작성. ADR-0001(모노레포 도구) Proposed 상태로 동반.  |
+| 2026-05-22 | ADR-0001 Accepted (Turborepo). Q4 커밋 컨벤션 형식 확정 (prefix 영어 + 본문 한글). 강제 도구는 여전히 미정. |

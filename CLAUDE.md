@@ -38,7 +38,7 @@
 
 1. 큰 작업은 **작은 단위로 쪼개서** 진행
 2. 한 번에 너무 많은 파일을 만들지 말고, **단계별로** 만들고 검증
-3. 의미 있는 단위마다 **commit message 제안**
+3. 의미 있는 단위마다 **commit message 제안** — Conventional Commits 형식: **prefix는 영어** (`docs:` / `chore:` / `feat:` / `fix:` / `refactor:` / `build:` / `ci:` / `test:` / `style:` / `perf:`) + **본문은 한글**
 
 ## 문서화 원칙 (중요)
 
