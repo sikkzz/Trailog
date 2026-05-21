@@ -1,0 +1,30 @@
+{
+  "name": "@trailog/server",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Trailog 백엔드 (NestJS)",
+  "scripts": {
+    "build": "nest build",
+    "dev": "nest start --watch",
+    "start": "node dist/main",
+    "lint": "echo 'lint TBD'",
+    "typecheck": "tsc --noEmit",
+    "test": "echo 'test TBD'"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.1.22",
+    "@nestjs/core": "^11.1.22",
+    "@nestjs/platform-express": "^11.1.22",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^11.0.21",
+    "@types/node": "^25.9.1",
+    "@types/source-map-support": "^0.5.10",
+    "source-map-support": "^0.5.21",
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.5.0"
+  }
+}
