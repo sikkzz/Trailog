@@ -39,6 +39,7 @@ flowchart LR
 **1. 워크스페이스 프로토콜 (`workspace:`)**
 
 다른 워크스페이스 패키지에 의존할 땐 버전 대신 `workspace:` prefix를 씀:
+
 ```json
 {
   "dependencies": {
@@ -46,6 +47,7 @@ flowchart LR
   }
 }
 ```
+
 - `workspace:*` = "이 모노레포에 있는 같은 이름 아무 버전"
 - `workspace:^` = "현재 버전과 호환되는 범위"
 - 외부에 publish 할 때 pnpm이 자동으로 진짜 버전으로 치환
@@ -67,21 +69,23 @@ flowchart LR
 **4. `pnpm --filter` (필터링)**
 
 특정 워크스페이스에만 명령 실행:
+
 ```bash
 pnpm --filter @trailog/server dev      # server만 dev 실행
 pnpm --filter "./apps/*" build         # apps 폴더 아래 전부 build
 pnpm --filter @trailog/server... build # server + 그 의존성까지 빌드
 ```
+
 - Turborepo의 `turbo run` 명령이 내부적으로 비슷한 일을 함
 
 ## 왜 다른 선택지가 아닌 이걸 골랐나
 
-| 도구 | 호이스팅 | 디스크 효율 | 유령 의존성 | 비고 |
-|------|---------|-----------|-----------|------|
-| **pnpm workspaces** | ❌ (안 함, 좋음) | ⭐⭐⭐ (글로벌 store) | ❌ 방지됨 | 우리 선택 |
-| npm workspaces | ✅ (함) | ⭐ | ⚠️ 발생 가능 | 표준이지만 단점 명확 |
-| yarn workspaces (classic) | ✅ | ⭐⭐ | ⚠️ | Berry 이후로 PnP 등 변화 큼 |
-| lerna | (의존 도구에 따라) | (의존) | (의존) | 옛날 도구, 지금은 Nx에 흡수됨 |
+| 도구                      | 호이스팅           | 디스크 효율           | 유령 의존성  | 비고                          |
+| ------------------------- | ------------------ | --------------------- | ------------ | ----------------------------- |
+| **pnpm workspaces**       | ❌ (안 함, 좋음)   | ⭐⭐⭐ (글로벌 store) | ❌ 방지됨    | 우리 선택                     |
+| npm workspaces            | ✅ (함)            | ⭐                    | ⚠️ 발생 가능 | 표준이지만 단점 명확          |
+| yarn workspaces (classic) | ✅                 | ⭐⭐                  | ⚠️           | Berry 이후로 PnP 등 변화 큼   |
+| lerna                     | (의존 도구에 따라) | (의존)                | (의존)       | 옛날 도구, 지금은 Nx에 흡수됨 |
 
 PROJECT_ROOT에서 패키지 매니저를 pnpm으로 이미 확정한 이유와 같음: **빠르고 디스크 효율적이고 명시적인 의존성 관리**.
 

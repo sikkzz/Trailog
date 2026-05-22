@@ -52,14 +52,15 @@
 
 ### Claude가 먼저 제안해야 하는 상황
 
-| 상황                                                   | 작성할 문서                                    | 템플릿                                    |
-| ------------------------------------------------------ | ---------------------------------------------- | ----------------------------------------- |
-| 새 기능 만들기 시작할 때                               | `docs/specs/feature-xxx.md`                    | `docs/templates/spec.md`                  |
-| 기술적 의사결정이 필요할 때 (라이브러리, 구조 선택 등) | `docs/decisions/XXXX-xxx.md`                   | `docs/templates/adr.md`                   |
-| 본인이 처음 보는 개념이 등장했을 때                    | `docs/learnings/topic-name.md`                 | `docs/templates/learning-note.md`         |
-| 기능 개발 완료 후 캡처가 모였을 때                     | `docs/screens/feature-xxx.md`                  | `docs/templates/screen-catalog.md`        |
+| 상황                                                   | 작성할 문서                    | 템플릿                             |
+| ------------------------------------------------------ | ------------------------------ | ---------------------------------- |
+| 새 기능 만들기 시작할 때                               | `docs/specs/feature-xxx.md`    | `docs/templates/spec.md`           |
+| 기술적 의사결정이 필요할 때 (라이브러리, 구조 선택 등) | `docs/decisions/XXXX-xxx.md`   | `docs/templates/adr.md`            |
+| 본인이 처음 보는 개념이 등장했을 때                    | `docs/learnings/topic-name.md` | `docs/templates/learning-note.md`  |
+| 기능 개발 완료 후 캡처가 모였을 때                     | `docs/screens/feature-xxx.md`  | `docs/templates/screen-catalog.md` |
 
 **판단 기준**:
+
 - 학습 노트는 "이 개념, 처음 보거나 헷갈릴 만한가?" 자문하고 그렇다면 제안
 - Spec/ADR/화면 카탈로그는 워크플로의 정해진 단계이므로 빠뜨리지 말 것
 - 제안할 땐 "이거 노트로 남겨둘까요?" 식으로 짧게 묻기. 매번 작성 강제하진 않음

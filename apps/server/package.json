@@ -7,7 +7,8 @@
     "build": "nest build",
     "dev": "nest start --watch",
     "start": "node dist/main",
-    "lint": "echo 'lint TBD'",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix",
     "typecheck": "tsc --noEmit",
     "test": "echo 'test TBD'"
   },
@@ -20,8 +21,10 @@
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.21",
+    "@trailog/eslint-config": "workspace:^",
     "@types/node": "^25.9.1",
     "@types/source-map-support": "^0.5.10",
+    "eslint": "^9.0.0",
     "source-map-support": "^0.5.21",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",

@@ -1,0 +1,25 @@
+# Dependencies
+node_modules
+.pnpm-store
+
+# Build outputs
+dist
+build
+.turbo
+.next
+.expo
+.expo-shared
+
+# Lock files (생성물, 손으로 만지지 않음)
+pnpm-lock.yaml
+
+# Logs
+*.log
+
+# Native (Expo prebuild output — 사용 시 별도 결정)
+ios
+android
+
+# Misc
+*.tsbuildinfo
+coverage

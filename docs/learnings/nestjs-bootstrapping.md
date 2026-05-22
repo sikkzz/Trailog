@@ -57,10 +57,12 @@ import { NestFactory } from '@nestjs/core';
 **2. 데코레이터가 실제로 하는 일**
 
 `@Controller('health')`는 마법이 아니라 함수 호출:
+
 ```typescript
 // 컴파일 후 대략 이렇게 됨
 Reflect.defineMetadata('path', 'health', HealthController);
 ```
+
 - NestJS는 부트스트랩 시 모든 클래스를 스캔하고
 - `Reflect.getMetadata('path', SomeClass)` 로 메타데이터를 읽어
 - 라우트 테이블, DI 그래프 등을 구성
@@ -75,6 +77,7 @@ export class HealthController {
   constructor(private readonly someService: SomeService) {} // 자동 주입
 }
 ```
+
 - NestJS는 컨스트럭터의 **타입 정보**를 메타데이터에서 읽어 어떤 클래스를 주입할지 판단
 - 그래서 `SomeService` 가 같은 모듈 (또는 imports된 모듈)의 `providers` 에 등록되어 있어야 함
 - 우리 health 모듈은 아직 service 없이 controller만 있어서 DI 사용 안 함 (가장 단순한 형태)
@@ -89,16 +92,19 @@ export class HealthController {
   exports: [SomeService],        // 외부 모듈에 공개할 것
 })
 ```
+
 - providers 가 export 안 되면 다른 모듈에서 못 씀 → 캡슐화
 - 처음엔 다 root module(AppModule)에 박고 싶을 수 있는데, feature 단위 모듈 분리가 NestJS의 핵심 가치
 
 **5. HTTP 어댑터 — 기본은 Express, 갈아끼울 수 있음**
 
 `NestFactory.create(AppModule)` 는 기본적으로 `@nestjs/platform-express` 사용. Fastify로 바꾸려면:
+
 ```typescript
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 const app = await NestFactory.create<NestFastifyApplication>(AppModule, new FastifyAdapter());
 ```
+
 - 우리는 Express 유지 (생태계 풍부, 거의 모든 미들웨어 호환)
 - Fastify는 성능 우위 있지만 Phase 4쯤 측정 후 바꿔도 늦지 않음 ([PROJECT_ROOT 8장](../PROJECT_ROOT.md#8-안티-패턴--하지-말아야-할-것) "측정 전 최적화 X")
 

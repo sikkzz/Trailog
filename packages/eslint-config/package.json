@@ -1,0 +1,26 @@
+{
+  "name": "@trailog/eslint-config",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Trailog 공통 ESLint 설정 (flat config, v9)",
+  "type": "module",
+  "main": "./base.js",
+  "exports": {
+    ".": "./base.js",
+    "./nest": "./nest.js"
+  },
+  "files": [
+    "base.js",
+    "nest.js"
+  ],
+  "dependencies": {
+    "@eslint/js": "^9.0.0",
+    "eslint": "^9.0.0",
+    "eslint-config-prettier": "^9.0.0",
+    "globals": "^15.0.0",
+    "typescript-eslint": "^8.0.0"
+  },
+  "peerDependencies": {
+    "typescript": ">=5.0.0"
+  }
+}
