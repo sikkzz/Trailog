@@ -1,0 +1,27 @@
+{
+  "expo": {
+    "name": "Trailog",
+    "slug": "trailog",
+    "version": "0.0.1",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "scheme": "trailog",
+    "newArchEnabled": true,
+    "ios": {
+      "bundleIdentifier": "com.trailog.app",
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.trailog.app",
+      "edgeToEdgeEnabled": true
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static"
+    },
+    "plugins": ["expo-router"],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
