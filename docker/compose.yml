@@ -1,0 +1,48 @@
+# Trailog 로컬 개발용 인프라
+# 실행: 루트에서 `pnpm db:up` (또는 `docker compose -f docker/compose.yml up -d`)
+# 정지: `pnpm db:down`
+#
+# 환경변수는 루트 .env 파일 자동 인식 (없으면 아래 default 값 사용)
+
+services:
+  postgres:
+    # Postgres 16 + PostGIS 3.4 — ARM64 (Apple Silicon) 지원 양호.
+    # Postgres 17 + PostGIS 3.5 는 ARM 빌드가 누락된 시점이라 16-3.4 유지.
+    image: postgis/postgis:16-3.4
+    container_name: trailog-postgres
+    restart: unless-stopped
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-trailog}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-trailog_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-trailog}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-trailog} -d ${POSTGRES_DB:-trailog}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    container_name: trailog-redis
+    restart: unless-stopped
+    ports:
+      - '${REDIS_PORT:-6379}:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+volumes:
+  postgres_data:
+    name: trailog_postgres_data
+  redis_data:
+    name: trailog_redis_data
