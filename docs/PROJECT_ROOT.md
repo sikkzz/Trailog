@@ -136,21 +136,44 @@
 
 ### 인프라
 
-| 항목          | 무료 또는 저비용 선택지                               |
-| ------------- | ----------------------------------------------------- |
-| 백엔드 호스팅 | Railway, Fly.io, Render (학습 후 AWS ECS로 이전 옵션) |
-| DB            | Supabase 또는 Neon (Postgres 무료 티어)               |
-| 이미지 저장   | **Cloudflare R2** (10GB 무료, egress 무료) ⭐         |
-| Redis         | Upstash (무료 티어)                                   |
-| CI/CD         | GitHub Actions                                        |
-| 모니터링      | Sentry (무료 티어)                                    |
-| 도메인        | Cloudflare Registrar                                  |
+| 항목                             | 무료 또는 저비용 선택지                                          |
+| -------------------------------- | ---------------------------------------------------------------- |
+| 백엔드 호스팅 (Phase 1~3)        | **Railway 또는 Fly.io** (PaaS, 빠른 출시. ADR-0003에서 정식 결정) |
+| 백엔드 호스팅 (Phase 4+)         | **AWS ECS Fargate** (마이그레이션, ADR-0002 참고)                |
+| DB                               | Supabase 또는 Neon (Postgres 무료 티어). Phase 4에 RDS로 전환 검토 |
+| 이미지 저장                      | **Cloudflare R2** (10GB 무료, egress 무료) ⭐                    |
+| Redis                            | Upstash (무료 티어). Phase 4에 ElastiCache로 전환 검토            |
+| CI/CD                            | GitHub Actions                                                   |
+| 모니터링                         | Sentry (무료 티어) + CloudWatch (Phase 4+)                       |
+| 도메인                           | Cloudflare Registrar                                             |
+| IaC (Phase 4+)                   | Terraform (선택, 참조 패턴 모방 학습)                            |
 
-### AWS 학습 전략
+### 인프라 배포 전략 (하이브리드, ADR-0002)
 
-- 본 프로젝트의 실제 운영은 Railway/Fly.io 등 PaaS로 진행
-- AWS 학습은 **LocalStack** (로컬에서 AWS API 흉내) 또는 **무료 티어 1년**을 별도 활용
-- 이유: AWS 직접 운영 시 비용 폭탄 리스크. 학습 가치 대비 부담이 큼.
+본 프로젝트는 **단계별 인프라 전환**을 채택. 자세한 사유와 트레이드오프는 [ADR-0002](./decisions/0002-hybrid-infra-paas-then-aws-ecs.md) 참고.
+
+- **Phase 1~3**: PaaS (Railway 또는 Fly.io) — 본진(이미지 파이프라인/지도/모바일) 학습 가속, 빠른 출시
+- **Phase 4**: AWS ECS Fargate로 마이그레이션 — 실무 표준 인프라 경험, 실무 환경(어쳐브모먼트)과 동일 스택
+- **Phase 5+**: AWS 위에서 운영 안정화, 실시간/캐싱/AI 추가
+
+#### 왜 하이브리드인가
+
+1. **시간 분배**: Phase 1~3 = PaaS로 본진 가속. Phase 4 = 인프라 한 번에 본격 학습.
+2. **실무 학습 시그널**: AWS ECS·Terraform·ECR·CloudWatch 직접 운영 경험 확보. 백엔드/인프라 직군 채용에 강한 시그널.
+3. **실무 학습 직결**: 실무 환경가 ECS Fargate 운영 중 → 사이드 학습이 참조 코드 이해·동료 대화에 직접 활용.
+4. **마이그레이션 스토리**: "PaaS로 빠르게 출시 → AWS로 옮긴 경험" = 학습 토픽에서 강력한 토픽.
+
+#### 비용 통제
+
+| 시점                  | 인프라                                         | 월 비용 (추정) |
+| --------------------- | ---------------------------------------------- | -------------- |
+| Phase 1~3             | PaaS 무료/저티어                               | $0~10          |
+| Phase 4 마이그레이션 후 | AWS ECS Fargate 최소 사양 + RDS Single-AZ        | $30~50         |
+| Phase 5+              | 트래픽에 따라 조정                             | $30~80         |
+
+- **CloudWatch Billing Alarm 필수** (Phase 4 진입 즉시 셋업)
+- AWS 무료 티어 1년 활용 가능 (신규 계정 시)
+- 보조 학습: 사내 AWS read-only 권한 요청 + LocalStack (로컬에서 AWS API 흉내)
 
 ---
 
@@ -274,21 +297,42 @@ flowchart TD
 
 **산출물**: 지도 위에서 본인이 다녀온 여행이 핀과 루트로 한눈에 보임.
 
-### Phase 4: 운영 강화 (2주)
+### Phase 4: 운영 강화 + AWS ECS 마이그레이션 (4~6주)
 
-**학습 영역: 인프라 / DevOps (2차 — 운영 관점)**
+**학습 영역: 인프라 / DevOps (2차 — 운영 관점 + AWS 실무 스택)**
 
-> Phase 1에서 이미 기본 배포는 끝낸 상태. 여기서는 "굴러가는" 환경을 "운영 가능한" 환경으로 끌어올린다.
+> Phase 1에서 PaaS로 기본 배포 완료. Phase 4에서는 운영 안정화 + **AWS ECS Fargate로 마이그레이션** ([ADR-0002](./decisions/0002-hybrid-infra-paas-then-aws-ecs.md)).
+
+#### 4-1. 운영 안정화 (PaaS 또는 ECS 어느 쪽에서도 필요)
 
 - CI/CD 파이프라인 고도화 (preview 환경, 마이그레이션 자동화, rollback 전략)
 - 도메인 연결, HTTPS, 커스텀 도메인 정리
 - **Sentry 연동** (백엔드 + 모바일 양쪽 에러 추적)
-- 구조화 로깅 + 로그 집계 (가능하면 무료 티어 SaaS 활용)
+- 구조화 로깅 + 로그 집계
 - 헬스체크, 알람 (Uptime monitoring)
 - EAS Build/Submit로 **TestFlight + Google Play 내부 테스트 트랙** 업로드 1회 경험
 - 비용 모니터링 셋업 (R2, DB, 호스팅 비용 확인 루틴)
 
-**산출물**: 장애 났을 때 Sentry로 알아채고, 로그 보고, 안전하게 롤백할 수 있는 상태.
+#### 4-2. AWS ECS Fargate 마이그레이션 (ADR-0002)
+
+선후행 작업:
+
+- [ ] AWS 계정 셋업 + IAM 사용자/역할 + **CloudWatch Billing Alarm 최우선 설정**
+- [ ] 백엔드 production용 **Dockerfile** 작성 (multi-stage build, 최소 이미지)
+- [ ] **ECR repo** 생성 + 이미지 push (GitHub Actions 자동화)
+- [ ] **VPC 셋업** (간소화: 단일 AZ + Public subnet, 비용 ↓)
+- [ ] **ECS Cluster** + **Task Definition** + **Service** (Fargate, 0.25 vCPU/0.5GB부터)
+- [ ] **ALB** + Target Group + **Route 53** + **ACM 인증서**
+- [ ] **CloudWatch Log Group** 연결, 구조화 로그 전송
+- [ ] (선택) **Terraform IaC**로 위 모든 리소스 코드화 (참조 패턴 모방 학습)
+- [ ] 트래픽 컷오버 (PaaS → ECS) + 모니터링
+- [ ] ADR-0004 마이그레이션 후일담 작성 (트러블슈팅·비용 실측·학습 정리)
+
+**산출물**:
+- PaaS → AWS ECS Fargate로 운영 환경 이전 완료
+- Sentry로 장애 모니터링, IaC로 인프라 관리
+- 실무 환경(어쳐브모먼트)과 동일 스택 경험 확보 → 참조 코드 읽기·동료 대화 가속
+- "마이그레이션 했던 이유" 학습 토픽 스토리 확보
 
 ### Phase 5: 실시간 + 캐싱 (3~4주)
 
@@ -392,3 +436,4 @@ flowchart TD
 | 2026-05-21 | 최초 작성 (Claude와의 논의를 기반으로 정리)                                                                                                                                                                                       |
 | 2026-05-21 | Open Questions 6건 일괄 결정 (Q1 인프라 먼저 / Q3 6영역 전체 / Q5 iOS+Android 동시 / Q6 JWT 직접 / Q2·Q4는 해당 Phase에 재논의). Phase 1·4 로드맵을 "인프라 먼저"에 맞춰 재구성.                                                  |
 | 2026-05-22 | Section 5 "운영 방식 (1인 풀팀 + 문서 자동화)" 신규 추가. 와이어프레임 폐기 → 개발 후 화면 캡처 카탈로그 방식 채택. 모든 문서를 Claude가 작성, 본인은 프롬프팅·리뷰만 수행하는 워크플로 확정. 기존 5~10장을 6~11장으로 번호 이동. |
+| 2026-05-24 | 인프라 배포 전략 변경 ([ADR-0002](./decisions/0002-hybrid-infra-paas-then-aws-ecs.md)): PaaS 전체 운영 → **하이브리드** (Phase 1~3 PaaS, Phase 4에 AWS ECS Fargate 마이그레이션). 사유: 본인 우려 "보편적 스택 학습 필요" 반영, 회사(어쳐브모먼트) 환경과 일치, 마이그레이션 스토리 자체가 강한 학습. 4장 인프라 표/AWS 학습 전략 + 6장 Phase 4 로드맵 갱신. |
