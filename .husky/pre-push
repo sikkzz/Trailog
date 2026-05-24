@@ -1,0 +1,4 @@
+#!/usr/bin/env sh
+# pre-push: 더 무거운 검증 (typecheck). 5~10초 소요.
+# 우회: git push --no-verify (긴급시에만)
+pnpm typecheck

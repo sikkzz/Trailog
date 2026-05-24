@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+    # docs/**, *.md 변경만 있는 PR엔 CI 안 돔 (분 절약)
+    paths-ignore: ['docs/**', '**.md', '.gitignore', 'LICENSE']
+    # draft PR은 ready_for_review 되기 전까지 CI 스킵
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main]
+    paths-ignore: ['docs/**', '**.md', '.gitignore', 'LICENSE']
+
+# 같은 PR/브랜치에 새 푸시 들어오면 이전 실행 자동 취소 (CI 분 절약)
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: Lint + Typecheck + Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # pnpm CLI 활성화 — package.json의 packageManager 필드(pnpm@9.9.0)를 자동 인식
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      # Node 셋업 — .nvmrc 파일을 자동 읽어 같은 버전 사용
+      # cache: 'pnpm' 옵션이 pnpm-store(글로벌 캐시)를 자동 캐싱
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+
+      # Turborepo 캐시 — 변경 없는 패키지는 이전 결과 재사용 (CI 속도 ↑)
+      - name: Cache Turborepo
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: ${{ runner.os }}-turbo-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Build
+        run: pnpm build

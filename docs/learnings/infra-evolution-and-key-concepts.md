@@ -354,7 +354,7 @@ EC2 직접 관리 끝. 컨테이너 + 오케스트레이션으로 자동화.
    - AWS ECS·Terraform·ECR·CloudWatch 직접 운영 경험 = 강한 시그널
 
 3. **실무 학습 직결**
-   - 실무 환경(어쳐브모먼트)가 ECS Fargate + Terraform 운영
+   - 실무 환경가 ECS Fargate + Terraform 운영
    - 사이드 학습이 참조 코드 이해·동료 대화에 즉시 활용
    - 실무 단계 1 → 3 마이그레이션을 Trailog로 재현 ⇒ 학습 토픽 토픽
 

@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+# commit-msg: 메시지 형식 검증 (Conventional Commits)
+# 형식: <type>(<scope>): <subject>  — prefix 영어, 본문 한글 OK
+# 룰은 commitlint.config.js 참고
+npx --no -- commitlint --edit "$1"

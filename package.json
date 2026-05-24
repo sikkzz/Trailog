@@ -8,6 +8,7 @@
     "node": ">=20.14.0"
   },
   "scripts": {
+    "prepare": "husky",
     "dev": "turbo run dev",
     "build": "turbo run build",
     "lint": "turbo run lint",
@@ -23,8 +24,21 @@
     "db:reset": "docker compose -f docker/compose.yml down -v"
   },
   "devDependencies": {
-    "turbo": "^2.0.0",
+    "@commitlint/cli": "^21.0.1",
+    "@commitlint/config-conventional": "^21.0.1",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.0.5",
     "prettier": "^3.3.0",
+    "turbo": "^2.0.0",
     "typescript": "^5.5.0"
+  },
+  "lint-staged": {
+    "{apps,packages}/**/*.{ts,tsx,js,jsx,mjs,cjs}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,yaml,yml,js,mjs,cjs}": [
+      "prettier --write"
+    ]
   }
 }

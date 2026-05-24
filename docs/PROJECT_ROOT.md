@@ -20,7 +20,7 @@
 | 항목        | 내용                                                                                         |
 | ----------- | -------------------------------------------------------------------------------------------- |
 | 학습        | 프론트엔드 2년차                                                                             |
-| 현재 소속   | 어쳐브모먼트 / 참조 (HR AI 인재 플랫폼, 데스크탑 기반)                                    |
+| 실무 환경   | 실무 백엔드 (데스크탑 웹 기반)                                                            |
 | 메인 스택   | React, Next.js, TypeScript, NestJS, RDB(Postgres/MySQL), 상태관리(Redux/Zustand/React Query) |
 | 다뤄본 영역 | 웹뷰 개발 경험 있음                                                                          |
 | 약한 영역   | 인프라 거의 모름                                                                             |
@@ -155,7 +155,7 @@
 본 프로젝트는 **단계별 인프라 전환**을 채택. 자세한 사유와 트레이드오프는 [ADR-0002](./decisions/0002-hybrid-infra-paas-then-aws-ecs.md) 참고.
 
 - **Phase 1~3**: PaaS (Railway 또는 Fly.io) — 본진(이미지 파이프라인/지도/모바일) 학습 가속, 빠른 출시
-- **Phase 4**: AWS ECS Fargate로 마이그레이션 — 실무 표준 인프라 경험, 실무 환경(어쳐브모먼트)과 동일 스택
+- **Phase 4**: AWS ECS Fargate로 마이그레이션 — 실무 표준 인프라 경험, 실무 환경과 동일 스택
 - **Phase 5+**: AWS 위에서 운영 안정화, 실시간/캐싱/AI 추가
 
 #### 왜 하이브리드인가
@@ -334,7 +334,7 @@ flowchart TD
 
 - PaaS → AWS ECS Fargate로 운영 환경 이전 완료
 - Sentry로 장애 모니터링, IaC로 인프라 관리
-- 실무 환경(어쳐브모먼트)과 동일 스택 경험 확보 → 참조 코드 읽기·동료 대화 가속
+- 실무 환경과 동일 스택 경험 확보 → 참조 코드 읽기·동료 대화 가속
 - "마이그레이션 했던 이유" 학습 토픽 스토리 확보
 
 ### Phase 5: 실시간 + 캐싱 (3~4주)
@@ -439,5 +439,6 @@ flowchart TD
 | 2026-05-21 | 최초 작성 (Claude와의 논의를 기반으로 정리)                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | 2026-05-21 | Open Questions 6건 일괄 결정 (Q1 인프라 먼저 / Q3 6영역 전체 / Q5 iOS+Android 동시 / Q6 JWT 직접 / Q2·Q4는 해당 Phase에 재논의). Phase 1·4 로드맵을 "인프라 먼저"에 맞춰 재구성.                                                                                                                                                                                                                                                                                                                          |
 | 2026-05-22 | Section 5 "운영 방식 (1인 풀팀 + 문서 자동화)" 신규 추가. 와이어프레임 폐기 → 개발 후 화면 캡처 카탈로그 방식 채택. 모든 문서를 Claude가 작성, 본인은 프롬프팅·리뷰만 수행하는 워크플로 확정. 기존 5~10장을 6~11장으로 번호 이동.                                                                                                                                                                                                                                                                         |
-| 2026-05-24 | 인프라 배포 전략 변경 ([ADR-0002](./decisions/0002-hybrid-infra-paas-then-aws-ecs.md)): PaaS 전체 운영 → **하이브리드** (Phase 1~3 PaaS, Phase 4에 AWS ECS Fargate 마이그레이션). 사유: 본인 우려 "보편적 스택 학습 필요" 반영, 회사(어쳐브모먼트) 환경과 일치, 마이그레이션 스토리 자체가 강한 학습. 4장 인프라 표/AWS 학습 전략 + 6장 Phase 4 로드맵 갱신.                                                                                                                                              |
+| 2026-05-24 | 인프라 배포 전략 변경 ([ADR-0002](./decisions/0002-hybrid-infra-paas-then-aws-ecs.md)): PaaS 전체 운영 → **하이브리드** (Phase 1~3 PaaS, Phase 4에 AWS ECS Fargate 마이그레이션). 사유: 본인 우려 "보편적 스택 학습 필요" 반영, 실무 환경과 일치, 마이그레이션 스토리 자체가 강한 학습. 4장 인프라 표/AWS 학습 전략 + 6장 Phase 4 로드맵 갱신.                                                                                                                                                            |
 | 2026-05-24 | 패키지 매니저 재검토 후 **pnpm 유지** 확정 ([ADR-0003](./decisions/0003-package-manager-pnpm-keep.md)). npm/Yarn Berry 실제 마이그레이션 두 번 시도(npm: 동작 OK이나 모노레포 기능 약함, Yarn Berry: Expo SDK 56 quarantine 이슈로 실패) 후, 본인 학습 영역 6개에 패키지 매니저가 없는 점 + 본진 시간 우선 원칙으로 pnpm + `.npmrc node-linker=hoisted` 트릭 유지. 패키지 매니저는 나중에 바꾸기 비교적 쉬워 첫 결정에 100% 무게 X. 4장 인프라 표에 패키지 매니저 명시. PaaS 도구 결정은 ADR-0004로 미룸. |
+| 2026-05-24 | **GitHub Actions CI + husky 4계층 안전망** 도입. (1) repo public 전환 (Actions 무료 무제한 + 포트폴리오). (2) 로컬 husky: pre-commit→lint-staged, commit-msg→commitlint, pre-push→typecheck. (3) 클라우드 CI: PR(main)/push(main) 시 lint+typecheck+build, paths-ignore로 docs/\** 스킵. (4) branch 전략: 지금~Phase 1 main 직접, Phase 2부터 feature/*→PR. Phase 1 spec Q4 commitlint/husky 도입 확정 처리. 회사 식별 정보 공개 문서에서 일반화 — public 전환 안전 확보.                     |

@@ -1,0 +1,4 @@
+#!/usr/bin/env sh
+# pre-commit: staged 파일만 lint + format 자동 적용
+# lint-staged 룰은 루트 package.json의 "lint-staged" 필드 참고
+npx lint-staged
