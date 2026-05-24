@@ -1,0 +1,45 @@
+name: Deploy to Fly.io
+
+# main 브랜치 머지 시 Fly.io 자동 배포
+on:
+  push:
+    branches: [main]
+    # 백엔드(apps/server, packages/eslint-config, 루트 설정) 변경 시만 실행
+    # docs/**, apps/mobile/** 변경엔 재배포 불필요
+    paths:
+      - 'apps/server/**'
+      - 'packages/eslint-config/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - '.npmrc'
+      - 'fly.toml'
+      - '.dockerignore'
+      - '.github/workflows/deploy.yml'
+  # 수동 트리거 (Actions 탭에서 "Run workflow")
+  workflow_dispatch:
+
+# 동시 배포 차단 (이전 배포 진행 중이면 큐잉)
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy backend to Fly.io
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # flyctl CLI 설치 (공식 action)
+      - name: Setup Fly CLI
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      # 배포 (fly.toml + apps/server/Dockerfile 기반)
+      # FLY_API_TOKEN 시크릿은 GitHub repo Settings → Secrets and variables → Actions 에 등록
+      - name: Deploy to Fly.io
+        run: fly deploy --remote-only
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

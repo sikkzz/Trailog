@@ -1,0 +1,41 @@
+# Trailog 백엔드 Fly.io 배포 설정
+#
+# 공식 reference: https://fly.io/docs/reference/configuration/
+# 처음 배포 시 `fly launch` 가 이 파일을 자동 생성하지만, 우리는 미리 작성해서
+# 의도된 설정으로 시작. app name 충돌 시 아래 `app` 줄만 변경.
+
+app = 'trailog-server'
+primary_region = 'nrt' # 도쿄 — 한국에서 가장 가까운 Fly 리전
+
+[build]
+# 모노레포에서 fly.toml은 루트, Dockerfile은 apps/server/.
+# 빌드 컨텍스트는 fly.toml 위치 (= 모노레포 루트) → workspace 파일 모두 접근 가능.
+dockerfile = 'apps/server/Dockerfile'
+
+[env]
+# 환경변수 (시크릿이 아닌 일반 값만 — 비밀값은 `fly secrets` 사용)
+NODE_ENV = 'production'
+PORT = '3000'
+
+[http_service]
+internal_port = 3000
+force_https = true
+auto_stop_machines = 'stop' # 트래픽 없으면 자동 중지 (비용 절약)
+auto_start_machines = true # 요청 들어오면 자동 시작
+min_machines_running = 0 # hobby plan에선 0이 비용 효율적
+processes = ['app']
+
+# 헬스체크: /health 엔드포인트로 자동 검증
+[[http_service.checks]]
+grace_period = '10s'
+interval = '30s'
+method = 'GET'
+timeout = '5s'
+path = '/health'
+
+[[vm]]
+# hobby tier 최소 사양
+size = 'shared-cpu-1x'
+memory = '256mb'
+cpu_kind = 'shared'
+cpus = 1

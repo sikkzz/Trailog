@@ -140,7 +140,7 @@
 | ------------------------- | ---------------------------------------------------------------------- |
 | 패키지 매니저             | **pnpm 9.9.0** + `.npmrc node-linker=hoisted` (Expo/RN 호환, ADR-0003) |
 | 모노레포 빌드 도구        | **Turborepo 2.x** (ADR-0001)                                           |
-| 백엔드 호스팅 (Phase 1~3) | **Railway 또는 Fly.io** (PaaS, 빠른 출시. ADR-0004에서 정식 결정 예정) |
+| 백엔드 호스팅 (Phase 1~3) | **Fly.io** (PaaS, ADR-0004 확정. region=nrt, hobby plan 무료)          |
 | 백엔드 호스팅 (Phase 4+)  | **AWS ECS Fargate** (마이그레이션, ADR-0002 참고)                      |
 | DB                        | Supabase 또는 Neon (Postgres 무료 티어). Phase 4에 RDS로 전환 검토     |
 | 이미지 저장               | **Cloudflare R2** (10GB 무료, egress 무료) ⭐                          |
@@ -442,3 +442,4 @@ flowchart TD
 | 2026-05-24 | 인프라 배포 전략 변경 ([ADR-0002](./decisions/0002-hybrid-infra-paas-then-aws-ecs.md)): PaaS 전체 운영 → **하이브리드** (Phase 1~3 PaaS, Phase 4에 AWS ECS Fargate 마이그레이션). 사유: 본인 우려 "보편적 스택 학습 필요" 반영, 실무 환경과 일치, 마이그레이션 스토리 자체가 강한 학습. 4장 인프라 표/AWS 학습 전략 + 6장 Phase 4 로드맵 갱신.                                                                                                                                                            |
 | 2026-05-24 | 패키지 매니저 재검토 후 **pnpm 유지** 확정 ([ADR-0003](./decisions/0003-package-manager-pnpm-keep.md)). npm/Yarn Berry 실제 마이그레이션 두 번 시도(npm: 동작 OK이나 모노레포 기능 약함, Yarn Berry: Expo SDK 56 quarantine 이슈로 실패) 후, 본인 학습 영역 6개에 패키지 매니저가 없는 점 + 본진 시간 우선 원칙으로 pnpm + `.npmrc node-linker=hoisted` 트릭 유지. 패키지 매니저는 나중에 바꾸기 비교적 쉬워 첫 결정에 100% 무게 X. 4장 인프라 표에 패키지 매니저 명시. PaaS 도구 결정은 ADR-0004로 미룸. |
 | 2026-05-24 | **GitHub Actions CI + husky 4계층 안전망** 도입. (1) repo public 전환 (Actions 무료 무제한 + 포트폴리오). (2) 로컬 husky: pre-commit→lint-staged, commit-msg→commitlint, pre-push→typecheck. (3) 클라우드 CI: PR(main)/push(main) 시 lint+typecheck+build, paths-ignore로 docs/\** 스킵. (4) branch 전략: 지금~Phase 1 main 직접, Phase 2부터 feature/*→PR. Phase 1 spec Q4 commitlint/husky 도입 확정 처리. 회사 식별 정보 공개 문서에서 일반화 — public 전환 안전 확보.                     |
+| 2026-05-24 | **Fly.io PaaS 배포 확정** ([ADR-0004](./decisions/0004-paas-tool-flyio.md)) + Phase 1 4.4 충족. apps/server에 single-stage Dockerfile + 루트 fly.toml + .dockerignore. region=nrt(도쿄), hobby plan, auto_stop_machines로 비용 0. 공개 URL https://trailog-server.fly.dev/health 200 OK 검증. GitHub Actions deploy workflow(main 머지 시 자동) 추가. Phase 1 spec Q2 해결. Phase 4 AWS ECS 마이그레이션의 워밍업 — Dockerfile/시크릿/헬스체크/리전 개념 모두 ECS 직결.                                   |
