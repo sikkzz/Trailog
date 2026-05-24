@@ -36,10 +36,13 @@ jobs:
       # flyctl CLI 설치 (공식 action)
       - name: Setup Fly CLI
         uses: superfly/flyctl-actions/setup-flyctl@master
+        with:
+          version: latest
 
       # 배포 (fly.toml + apps/server/Dockerfile 기반)
+      # 주의: 로컬은 `fly` alias 자동 생성되지만 CI runner엔 `flyctl`만 설치됨.
       # FLY_API_TOKEN 시크릿은 GitHub repo Settings → Secrets and variables → Actions 에 등록
       - name: Deploy to Fly.io
-        run: fly deploy --remote-only
+        run: flyctl deploy --remote-only
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
