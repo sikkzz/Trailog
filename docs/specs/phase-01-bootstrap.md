@@ -68,6 +68,7 @@
 - [ ] 첫 ADR (`0001-monorepo-tool.md`) 작성 + Accepted
 - [ ] 만난 새 개념별 학습 노트 작성 (예상: pnpm workspaces, Docker Compose, GitHub Actions, EAS, presigned URL 개념 일부 등)
 - [ ] README.md 가 "처음 보는 사람이 5분 안에 셋업 가능" 수준으로 작성
+- [ ] **docs publish 자동화** — Notion + 자체 sync 스크립트 + GitHub Actions ([ADR-0005](../decisions/0005-docs-publishing-notion-sync.md))
 
 ## 5. 비범위 (Out of Scope)
 
@@ -127,6 +128,7 @@ flowchart TD
 | Q4  | 커밋 컨벤션 (형식 + 강제 도구)                 | ✅ 형식: prefix(영어) + 본문(한글). ✅ husky + commitlint + lint-staged 도입 확정 (2026-05-24) | 4계층 안전망 일부 (husky 로컬 + GitHub Actions CI) |
 | Q5  | 모노레포 패키지명 prefix (`@trailog/*`)        | 미정                                                                                           | 4.1 모노레포 셋업 시                               |
 | Q6  | Android 테스트 디바이스 (실기기 vs 에뮬레이터) | 미정                                                                                           | 4.5 모바일 빌드 직전                               |
+| Q7  | docs publish 자동화 도구                       | ✅ ADR-0005 Accepted (Notion + 자체 sync 스크립트, 2026-05-24)                                 | 2026-05-24 확정                                    |
 
 ## 10. 학습 노트 작성 예상 토픽
 
@@ -142,7 +144,8 @@ flowchart TD
 
 ## 11. 변경 이력
 
-| 날짜       | 변경 내용                                                                                                   |
-| ---------- | ----------------------------------------------------------------------------------------------------------- |
-| 2026-05-22 | 최초 작성. ADR-0001(모노레포 도구) Proposed 상태로 동반.                                                    |
-| 2026-05-22 | ADR-0001 Accepted (Turborepo). Q4 커밋 컨벤션 형식 확정 (prefix 영어 + 본문 한글). 강제 도구는 여전히 미정. |
+| 날짜       | 변경 내용                                                                                                                               |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-05-22 | 최초 작성. ADR-0001(모노레포 도구) Proposed 상태로 동반.                                                                                |
+| 2026-05-22 | ADR-0001 Accepted (Turborepo). Q4 커밋 컨벤션 형식 확정 (prefix 영어 + 본문 한글). 강제 도구는 여전히 미정.                             |
+| 2026-05-24 | Q7 추가 + ADR-0005 Accepted (Notion + 자체 sync 스크립트로 docs publish 자동화). 4.6 문서 섹션에 항목 추가. 사내 위키 자동화 prototype. |

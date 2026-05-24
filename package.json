@@ -21,11 +21,15 @@
     "db:logs": "docker compose -f docker/compose.yml logs -f",
     "db:psql": "docker compose -f docker/compose.yml exec postgres psql -U trailog -d trailog",
     "db:redis": "docker compose -f docker/compose.yml exec redis redis-cli",
-    "db:reset": "docker compose -f docker/compose.yml down -v"
+    "db:reset": "docker compose -f docker/compose.yml down -v",
+    "sync:notion": "node scripts/sync-to-notion.mjs",
+    "sync:notion:dry": "node scripts/sync-to-notion.mjs --dry-run"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.0.1",
     "@commitlint/config-conventional": "^21.0.1",
+    "@notionhq/client": "^5.22.0",
+    "gray-matter": "^4.0.3",
     "husky": "^9.1.7",
     "lint-staged": "^17.0.5",
     "prettier": "^3.3.0",

@@ -1,0 +1,49 @@
+name: Sync docs to Notion
+
+# docs/ 변경 시 Notion에 자동 publish
+# 자세한 설계: docs/decisions/0005-docs-publishing-notion-sync.md
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - 'scripts/sync-to-notion.mjs'
+      - '.github/workflows/notion-sync.yml'
+  # 수동 트리거 (Actions 탭에서 "Run workflow")
+  workflow_dispatch:
+
+# 동시 실행 차단 (이전 sync 진행 중이면 대기) — Notion API rate limit 충돌 방지
+concurrency:
+  group: notion-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Publish docs to Notion
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+
+      # devDependencies에 @notionhq/client, gray-matter만 필요 — 전체 install
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # 실제 sync 실행
+      # NOTION_TOKEN: GitHub repo Settings → Secrets and variables → Actions 에 등록
+      # NOTION_PARENT_PAGE_ID: 동일
+      - name: Sync to Notion
+        run: pnpm sync:notion
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_PARENT_PAGE_ID: ${{ secrets.NOTION_PARENT_PAGE_ID }}
