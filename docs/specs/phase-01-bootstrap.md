@@ -32,11 +32,11 @@
 
 ### 4.1 로컬 환경
 
-- [ ] pnpm 모노레포가 구성되어 있음 (`apps/mobile`, `apps/server`, `packages/shared-types`, `packages/eslint-config`)
-- [ ] 모노레포 빌드 도구가 셋업되어 있음 (ADR-0001로 결정)
-- [ ] `docker compose up` 한 번에 Postgres + Redis가 동시에 뜸
-- [ ] 백엔드(`apps/server`)가 로컬에서 `pnpm dev` 로 실행되고, `/health` 가 200 반환
-- [ ] 모바일(`apps/mobile`)이 `pnpm start` 로 Expo 개발 서버 실행됨
+- [x] pnpm 모노레포가 구성되어 있음 (`apps/mobile`, `apps/server`, `packages/eslint-config`. `packages/shared-types`는 Phase 2 진입 시 추가)
+- [x] 모노레포 빌드 도구가 셋업되어 있음 (Turborepo 2.x, [ADR-0001](../decisions/0001-monorepo-tool.md))
+- [x] `pnpm db:up` 한 번에 Postgres(PostGIS 16-3.4) + Redis(7-alpine) 동시 기동
+- [x] 백엔드(`apps/server`)가 `pnpm dev`로 실행 + `/health` 200 반환
+- [x] 모바일(`apps/mobile`)이 `pnpm dev`로 Expo dev server 실행됨
 
 ### 4.2 코드 품질 기본
 
@@ -47,15 +47,15 @@
 
 ### 4.3 CI (GitHub Actions)
 
-- [ ] PR 생성 시 lint + typecheck + build가 자동 실행
-- [ ] main 브랜치 머지 시 백엔드 자동 배포 트리거
-- [ ] 시크릿은 GitHub Secrets로 관리 (`.env` 절대 커밋 X)
+- [x] PR/main 푸시 시 lint + typecheck + build 자동 실행 (`.github/workflows/ci.yml`, paths-ignore `docs/**`)
+- [x] main 머지 시 백엔드 자동 배포 트리거 (`.github/workflows/deploy.yml` Fly.io)
+- [x] 시크릿은 GitHub Secrets로 관리 (`FLY_API_TOKEN`, `NOTION_TOKEN`, `NOTION_PARENT_PAGE_ID`. `.env` git 추적 X)
 
 ### 4.4 백엔드 배포
 
-- [ ] 백엔드가 Railway 또는 Fly.io에 배포되어 공개 URL로 접근 가능
-- [ ] `https://<공개주소>/health` 가 200 반환
-- [ ] 환경변수가 클라우드 콘솔에서 관리되고 있음
+- [x] 백엔드 Fly.io 배포 + 공개 URL: https://trailog-server.fly.dev ([ADR-0004](../decisions/0004-paas-tool-flyio.md))
+- [x] `https://trailog-server.fly.dev/health` 200 OK 반환
+- [x] 환경변수 `fly secrets`로 관리 (운영) + `.env.example`로 가이드 (로컬)
 
 ### 4.5 모바일 빌드
 
@@ -65,10 +65,10 @@
 
 ### 4.6 문서
 
-- [ ] 첫 ADR (`0001-monorepo-tool.md`) 작성 + Accepted
-- [ ] 만난 새 개념별 학습 노트 작성 (예상: pnpm workspaces, Docker Compose, GitHub Actions, EAS, presigned URL 개념 일부 등)
+- [x] 첫 ADR (`0001-monorepo-tool.md`) 작성 + Accepted. 추가 ADR-0002~0005 누적
+- [x] 학습 노트 11개 누적 (pnpm-workspaces, docker-compose-essentials, docker-basics, nestjs-bootstrapping, eslint-flat-config, github-actions-ci-basics, infra-evolution, expo-and-react-native-basics, fly-deployment-and-dockerfile, notion-sync-automation, eas-and-mobile-build)
 - [ ] README.md 가 "처음 보는 사람이 5분 안에 셋업 가능" 수준으로 작성
-- [ ] **docs publish 자동화** — Notion + 자체 sync 스크립트 + GitHub Actions ([ADR-0005](../decisions/0005-docs-publishing-notion-sync.md))
+- [x] **docs publish 자동화** — Notion + 자체 sync 스크립트 + GitHub Actions ([ADR-0005](../decisions/0005-docs-publishing-notion-sync.md))
 
 ## 5. 비범위 (Out of Scope)
 
@@ -153,3 +153,4 @@ flowchart TD
 | 2026-05-25 | EAS device:create에서 "Not registered as an Apple Developer" 차단 발견 → 4.5 경로 변경: 무료 Apple ID + EAS Cloud는 실기기 빌드 불가 사실 검증 후, **로컬 Xcode + Personal Team** 경로로 진행 (7일 ad-hoc). `apps/mobile/eas.json` 작성은 Phase 4 자산으로 보존. EAS Cloud는 Phase 4 Apple Developer Program 가입 후 본격 사용. 학습 노트 정정 (Apple Developer 무료/유료 표 + 함정 1 추가). |
 | 2026-05-25 | **Phase 1 4.5 iOS 항목 충족** ✅. iPhone 14 + iOS 26.4.2에 Trailog development build 설치 성공 + tunnel 모드(ngrok)로 Metro dev server 연결 검증. 로컬 LAN 자동 검색은 폰이 5G/다른 Wi-Fi라 실패 → tunnel + QR 스캔으로 우회. `dev:tunnel`, `dev:lan` script 추가.                                                                                                                           |
 | 2026-05-25 | **자잘 마무리** (Phase 1 클로징): Q3 확정 (Node 20.19.4 + pnpm 9.9.0), Q5 확정 (@trailog/\* prefix 이미 적용). `.nvmrc 20.14.0 → 20.19.4` 업데이트 (Expo SDK 56 권장 minimum + `pnpm dlx expo` 경고 해소). `engines.node>=20.19.4`. apps/server/.env.example + apps/mobile/.env.example 신규 (루트는 기존 유지). 4.2 항목 모두 ✅.                                                           |
+| 2026-05-25 | **체크박스 일관성 정리**. 작업 완료됐지만 체크박스 미박제였던 4.1(로컬 환경 5개), 4.3(CI 3개), 4.4(백엔드 배포 3개), 4.6(ADR/학습노트/docs publish 3개) 항목 모두 ✅. 남은 항목: 4.5 Android(deferred) + 4.6 README.md (Phase 1 마지막 미션).                                                                                                                                                |
