@@ -67,7 +67,7 @@
 
 - [x] 첫 ADR (`0001-monorepo-tool.md`) 작성 + Accepted. 추가 ADR-0002~0005 누적
 - [x] 학습 노트 11개 누적 (pnpm-workspaces, docker-compose-essentials, docker-basics, nestjs-bootstrapping, eslint-flat-config, github-actions-ci-basics, infra-evolution, expo-and-react-native-basics, fly-deployment-and-dockerfile, notion-sync-automation, eas-and-mobile-build)
-- [ ] README.md 가 "처음 보는 사람이 5분 안에 셋업 가능" 수준으로 작성
+- [x] README.md 가 "처음 보는 사람이 5분 안에 셋업 가능" 수준으로 작성
 - [x] **docs publish 자동화** — Notion + 자체 sync 스크립트 + GitHub Actions ([ADR-0005](../decisions/0005-docs-publishing-notion-sync.md))
 
 ## 5. 비범위 (Out of Scope)
@@ -154,3 +154,4 @@ flowchart TD
 | 2026-05-25 | **Phase 1 4.5 iOS 항목 충족** ✅. iPhone 14 + iOS 26.4.2에 Trailog development build 설치 성공 + tunnel 모드(ngrok)로 Metro dev server 연결 검증. 로컬 LAN 자동 검색은 폰이 5G/다른 Wi-Fi라 실패 → tunnel + QR 스캔으로 우회. `dev:tunnel`, `dev:lan` script 추가.                                                                                                                           |
 | 2026-05-25 | **자잘 마무리** (Phase 1 클로징): Q3 확정 (Node 20.19.4 + pnpm 9.9.0), Q5 확정 (@trailog/\* prefix 이미 적용). `.nvmrc 20.14.0 → 20.19.4` 업데이트 (Expo SDK 56 권장 minimum + `pnpm dlx expo` 경고 해소). `engines.node>=20.19.4`. apps/server/.env.example + apps/mobile/.env.example 신규 (루트는 기존 유지). 4.2 항목 모두 ✅.                                                           |
 | 2026-05-25 | **체크박스 일관성 정리**. 작업 완료됐지만 체크박스 미박제였던 4.1(로컬 환경 5개), 4.3(CI 3개), 4.4(백엔드 배포 3개), 4.6(ADR/학습노트/docs publish 3개) 항목 모두 ✅. 남은 항목: 4.5 Android(deferred) + 4.6 README.md (Phase 1 마지막 미션).                                                                                                                                                |
+| 2026-05-25 | **README.md 작성** (Phase 1 4.6 최종 항목 ✅). "처음 본 사람이 5분 안에 셋업 가능" 수준. 프로젝트 소개 + Quick Start(5단계) + 디렉토리 구조 + 명령어 표(개발/인프라/품질/모바일 빌드/문서) + 환경변수 가이드 + CI/CD 흐름 + 기술 스택 + 문서 안내 + 진행 상황. Q6 정정 예정(Android Phase 1 내 진행, 갤럭시 집에 있음). Phase 1 잔여: Android dev build + 완료 회고.                         |
