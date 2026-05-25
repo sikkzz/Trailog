@@ -108,17 +108,17 @@
 
 ### 클라이언트 (모바일)
 
-| 항목       | 선택                                                  |
-| ---------- | ----------------------------------------------------- |
-| 프레임워크 | React Native (Expo SDK)                               |
-| 언어       | TypeScript                                            |
-| 상태관리   | Zustand 또는 Redux Toolkit + React Query              |
-| 네비게이션 | Expo Router 또는 React Navigation                     |
-| 지도       | react-native-maps (Google/Apple Maps) 또는 MapLibre   |
-| 이미지     | expo-image, expo-image-picker, expo-image-manipulator |
-| 위치       | expo-location                                         |
-| 푸시       | Expo Push Notifications                               |
-| 빌드/배포  | EAS Build, EAS Submit                                 |
+| 항목       | 선택                                                                                                  |
+| ---------- | ----------------------------------------------------------------------------------------------------- |
+| 프레임워크 | React Native (Expo SDK)                                                                               |
+| 언어       | TypeScript                                                                                            |
+| 상태관리   | Zustand 또는 Redux Toolkit + React Query                                                              |
+| 네비게이션 | Expo Router 또는 React Navigation                                                                     |
+| 지도       | react-native-maps (Google/Apple Maps) 또는 MapLibre                                                   |
+| 이미지     | expo-image, expo-image-picker, expo-image-manipulator                                                 |
+| 위치       | expo-location                                                                                         |
+| 푸시       | Expo Push Notifications                                                                               |
+| 빌드/배포  | **EAS Build** (development/preview/production profile) + EAS Submit (Phase 4) + EAS Update (Phase 3+) |
 
 ### 서버 (백엔드)
 
@@ -445,3 +445,4 @@ flowchart TD
 | 2026-05-24 | **GitHub Actions CI + husky 4계층 안전망** 도입. (1) repo public 전환 (Actions 무료 무제한 + 포트폴리오). (2) 로컬 husky: pre-commit→lint-staged, commit-msg→commitlint, pre-push→typecheck. (3) 클라우드 CI: PR(main)/push(main) 시 lint+typecheck+build, paths-ignore로 docs/\** 스킵. (4) branch 전략: 지금~Phase 1 main 직접, Phase 2부터 feature/*→PR. Phase 1 spec Q4 commitlint/husky 도입 확정 처리. 회사 식별 정보 공개 문서에서 일반화 — public 전환 안전 확보.                                |
 | 2026-05-24 | **Fly.io PaaS 배포 확정** ([ADR-0004](./decisions/0004-paas-tool-flyio.md)) + Phase 1 4.4 충족. apps/server에 single-stage Dockerfile + 루트 fly.toml + .dockerignore. region=nrt(도쿄), hobby plan, auto_stop_machines로 비용 0. 공개 URL https://trailog-server.fly.dev/health 200 OK 검증. GitHub Actions deploy workflow(main 머지 시 자동) 추가. Phase 1 spec Q2 해결. Phase 4 AWS ECS 마이그레이션의 워밍업 — Dockerfile/시크릿/헬스체크/리전 개념 모두 ECS 직결.                                              |
 | 2026-05-24 | **문서 publish 자동화 — Notion + 자체 sync 스크립트** ([ADR-0005](./decisions/0005-docs-publishing-notion-sync.md)). PROJECT_ROOT 5장 "1인 풀팀 + 문서 자동화" 운영 방식의 두 번째 축 완성. `scripts/sync-to-notion.mjs` (Node.js + @notionhq/client, ~400 lines) + `.github/workflows/notion-sync.yml` (main 푸시 + docs/\*\* 트리거). 단방향(Git→Notion), idempotent upsert. 사내 위키 자동화 prototype 겸 외부 API 통합 학습. 4장 인프라 표에 "문서 publish" 행 추가. 학습 노트 `notion-sync-automation.md` 작성. |
+| 2026-05-25 | **EAS Build 셋업 진행** (Phase 1 4.5). Q6 결정: iOS 본인 iPhone만 Phase 1 충족, Android는 deferred. 4장 클라이언트 표 빌드/배포 행에 EAS 3종(Build/Submit/Update) 명시. `apps/mobile/package.json` scripts (build:dev:ios 등) 추가. 무료 Apple ID로 7일 ad-hoc 시작 — Apple Developer Program($99/년) 가입은 Phase 4 출시 임박 시. 학습 노트 `eas-and-mobile-build.md` 작성 (RN 빌드 모델, EAS 3종, profile 3종, 함정 8종, 사이드 빌드 빈도 분석).                                                                   |

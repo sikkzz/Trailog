@@ -22,6 +22,13 @@
     "plugins": ["expo-router"],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "2a7aa9ab-d621-4cd7-b7c8-793cdbab72f1"
+      }
+    },
+    "owner": "sling0623"
   }
 }
