@@ -40,10 +40,10 @@
 
 ### 4.2 코드 품질 기본
 
-- [ ] ESLint + Prettier 공통 설정이 `packages/eslint-config` 에 있고 양쪽 앱에서 사용
-- [ ] TypeScript strict 모드 활성화 (양쪽 앱)
-- [ ] 커밋 컨벤션 합의됨 (Conventional Commits 권장)
-- [ ] `.gitignore`, `.env.example` 정리됨
+- [x] ESLint + Prettier 공통 설정이 `packages/eslint-config` 에 있고 양쪽 앱에서 사용
+- [x] TypeScript strict 모드 활성화 (양쪽 앱)
+- [x] 커밋 컨벤션 합의됨 (Conventional Commits, prefix 영어 + 본문 한글, husky + commitlint 강제)
+- [x] `.gitignore`, `.env.example` 정리됨 (루트 + apps/server + apps/mobile)
 
 ### 4.3 CI (GitHub Actions)
 
@@ -120,15 +120,15 @@ flowchart TD
 
 작성 중 결정 안 된 사항. 결정되면 ADR로 옮기거나 본문에 반영.
 
-| #   | 사안                                           | 현재 상태                                                                                                         | 결정 시점                                          |
-| --- | ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
-| Q1  | 모노레포 도구 (Turborepo vs Nx)                | ✅ ADR-0001 Accepted (Turborepo)                                                                                  | 2026-05-22 확정                                    |
-| Q2  | 백엔드 호스팅 (Railway vs Fly.io)              | ✅ ADR-0004 Accepted (Fly.io, region=nrt)                                                                         | 2026-05-24 확정                                    |
-| Q3  | Node 버전 + pnpm 버전 고정 정책                | 미정                                                                                                              | 4.1 모노레포 셋업 시                               |
-| Q4  | 커밋 컨벤션 (형식 + 강제 도구)                 | ✅ 형식: prefix(영어) + 본문(한글). ✅ husky + commitlint + lint-staged 도입 확정 (2026-05-24)                    | 4계층 안전망 일부 (husky 로컬 + GitHub Actions CI) |
-| Q5  | 모노레포 패키지명 prefix (`@trailog/*`)        | 미정                                                                                                              | 4.1 모노레포 셋업 시                               |
-| Q6  | Android 테스트 디바이스 (실기기 vs 에뮬레이터) | ✅ deferred 결정 (2026-05-25): iOS 본인 iPhone만 Phase 1 충족. Android는 갤럭시 입수 시점 또는 Phase 4 출시 직전. | 2026-05-25 확정                                    |
-| Q7  | docs publish 자동화 도구                       | ✅ ADR-0005 Accepted (Notion + 자체 sync 스크립트, 2026-05-24)                                                    | 2026-05-24 확정                                    |
+| #   | 사안                                           | 현재 상태                                                                                                                                                        | 결정 시점                                          |
+| --- | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| Q1  | 모노레포 도구 (Turborepo vs Nx)                | ✅ ADR-0001 Accepted (Turborepo)                                                                                                                                 | 2026-05-22 확정                                    |
+| Q2  | 백엔드 호스팅 (Railway vs Fly.io)              | ✅ ADR-0004 Accepted (Fly.io, region=nrt)                                                                                                                        | 2026-05-24 확정                                    |
+| Q3  | Node 버전 + pnpm 버전 고정 정책                | ✅ 확정 (2026-05-25): `.nvmrc=20.19.4` (Expo SDK 56 권장 minimum) + `packageManager=pnpm@9.9.0` (corepack 자동 활성). 루트 package.json `engines.node>=20.19.4`. | 2026-05-25 확정                                    |
+| Q4  | 커밋 컨벤션 (형식 + 강제 도구)                 | ✅ 형식: prefix(영어) + 본문(한글). ✅ husky + commitlint + lint-staged 도입 확정 (2026-05-24)                                                                   | 4계층 안전망 일부 (husky 로컬 + GitHub Actions CI) |
+| Q5  | 모노레포 패키지명 prefix (`@trailog/*`)        | ✅ 확정 (2026-05-25): `@trailog/eslint-config`, `@trailog/mobile`, `@trailog/server` 적용. workspace 의존성은 `workspace:^`.                                     | 2026-05-25 확정                                    |
+| Q6  | Android 테스트 디바이스 (실기기 vs 에뮬레이터) | ✅ deferred 결정 (2026-05-25): iOS 본인 iPhone만 Phase 1 충족. Android는 갤럭시 입수 시점 또는 Phase 4 출시 직전.                                                | 2026-05-25 확정                                    |
+| Q7  | docs publish 자동화 도구                       | ✅ ADR-0005 Accepted (Notion + 자체 sync 스크립트, 2026-05-24)                                                                                                   | 2026-05-24 확정                                    |
 
 ## 10. 학습 노트 작성 예상 토픽
 
@@ -152,3 +152,4 @@ flowchart TD
 | 2026-05-25 | Q6 결정: iOS 본인 iPhone만 Phase 1 충족, Android는 deferred (갤럭시 입수 시점 또는 Phase 4 출시 직전). 4.5 Android 항목 strike-through. EAS Build 학습 노트 작성.                                                                                                                                                                                                                            |
 | 2026-05-25 | EAS device:create에서 "Not registered as an Apple Developer" 차단 발견 → 4.5 경로 변경: 무료 Apple ID + EAS Cloud는 실기기 빌드 불가 사실 검증 후, **로컬 Xcode + Personal Team** 경로로 진행 (7일 ad-hoc). `apps/mobile/eas.json` 작성은 Phase 4 자산으로 보존. EAS Cloud는 Phase 4 Apple Developer Program 가입 후 본격 사용. 학습 노트 정정 (Apple Developer 무료/유료 표 + 함정 1 추가). |
 | 2026-05-25 | **Phase 1 4.5 iOS 항목 충족** ✅. iPhone 14 + iOS 26.4.2에 Trailog development build 설치 성공 + tunnel 모드(ngrok)로 Metro dev server 연결 검증. 로컬 LAN 자동 검색은 폰이 5G/다른 Wi-Fi라 실패 → tunnel + QR 스캔으로 우회. `dev:tunnel`, `dev:lan` script 추가.                                                                                                                           |
+| 2026-05-25 | **자잘 마무리** (Phase 1 클로징): Q3 확정 (Node 20.19.4 + pnpm 9.9.0), Q5 확정 (@trailog/\* prefix 이미 적용). `.nvmrc 20.14.0 → 20.19.4` 업데이트 (Expo SDK 56 권장 minimum + `pnpm dlx expo` 경고 해소). `engines.node>=20.19.4`. apps/server/.env.example + apps/mobile/.env.example 신규 (루트는 기존 유지). 4.2 항목 모두 ✅.                                                           |

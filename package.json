@@ -5,7 +5,7 @@
   "description": "여행 사진 지도 아카이브 모바일 앱",
   "packageManager": "pnpm@9.9.0",
   "engines": {
-    "node": ">=20.14.0"
+    "node": ">=20.19.4"
   },
   "scripts": {
     "prepare": "husky",
