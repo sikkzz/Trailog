@@ -6,6 +6,11 @@
 // - 또는 로컬에서 `pnpm sync:notion` (NOTION_TOKEN + NOTION_PARENT_PAGE_ID 환경변수 필요)
 // - `pnpm sync:notion:dry` 로 dry-run (Notion 호출 X, 계획만 출력)
 //
+// 모드:
+// - 증분 (incremental): SYNC_CHANGED_FILES 환경변수 (콤마 구분 경로) 있으면 그 파일만 sync
+//   GitHub Actions가 git diff로 추출. 로컬에서도 `SYNC_CHANGED_FILES="docs/foo.md,..." pnpm sync:notion` 가능
+// - 전체 (full): SYNC_CHANGED_FILES 없거나 SYNC_ALL=true 또는 `--all` flag → 모든 파일 재작성 (초기 sync)
+//
 // 자세한 설계: docs/decisions/0005-docs-publishing-notion-sync.md
 // 학습 노트: docs/learnings/notion-sync-automation.md
 
@@ -18,8 +23,17 @@ import { fileURLToPath } from 'node:url';
 // ----- 환경 / 상수 -----
 
 const DRY_RUN = process.argv.includes('--dry-run');
+// --all: 변경 감지 무시하고 강제 전체 sync (env가 있어도 override)
+const FORCE_ALL = process.argv.includes('--all');
 const NOTION_TOKEN = process.env.NOTION_TOKEN;
 const NOTION_PARENT_PAGE_ID = process.env.NOTION_PARENT_PAGE_ID;
+
+// SYNC_CHANGED_FILES: GitHub Actions 또는 로컬에서 변경 파일 목록 (comma-separated, repo-root 기준 상대 경로).
+// 예: "docs/learnings/foo.md,docs/decisions/bar.md"
+// 비어있고 SYNC_ALL=true도 아니면 → 전체 sync (안전한 fallback).
+// SYNC_ALL=true: workflow에서 initial push 또는 force_full_sync 시 설정.
+const SYNC_CHANGED_FILES_RAW = process.env.SYNC_CHANGED_FILES ?? '';
+const SYNC_ALL = process.env.SYNC_ALL === 'true' || FORCE_ALL;
 
 if (!NOTION_TOKEN) {
   console.error('❌ NOTION_TOKEN 환경변수가 필요합니다.');
@@ -29,6 +43,14 @@ if (!NOTION_PARENT_PAGE_ID) {
   console.error('❌ NOTION_PARENT_PAGE_ID 환경변수가 필요합니다.');
   process.exit(1);
 }
+
+// 변경 파일 목록 파싱 (docs/ 안의 .md만). 빈 항목 제거.
+const CHANGED_FILES = SYNC_CHANGED_FILES_RAW.split(',')
+  .map((p) => p.trim())
+  .filter((p) => p && p.endsWith('.md') && p.startsWith('docs/'));
+
+// 증분 모드 여부 — SYNC_ALL이면 false, 변경 파일 목록이 있으면 true.
+const INCREMENTAL = !SYNC_ALL && CHANGED_FILES.length > 0;
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const REPO_ROOT = join(__dirname, '..');
@@ -513,7 +535,7 @@ async function syncFile(parentPageId, filePath, displayTitle) {
   await upsertLeafPage(parentPageId, displayTitle, blocks);
 }
 
-async function syncFolder(parentPageId, folderName, groupTitle) {
+async function syncFolder(parentPageId, folderName, groupTitle, { onlyFiles } = {}) {
   const folderPath = join(DOCS_ROOT, folderName);
   let files;
   try {
@@ -526,13 +548,24 @@ async function syncFolder(parentPageId, folderName, groupTitle) {
     throw err;
   }
 
-  const mdFiles = files.filter((f) => f.endsWith('.md')).sort();
+  let mdFiles = files.filter((f) => f.endsWith('.md')).sort();
+
+  // 증분 모드: onlyFiles에 있는 파일만 처리 (basename 기준).
+  if (onlyFiles) {
+    const allowed = new Set(onlyFiles);
+    mdFiles = mdFiles.filter((f) => allowed.has(f));
+    if (mdFiles.length === 0) {
+      console.log(`\n  ⏭  ${folderName}/ 변경 파일 없음, skip`);
+      return;
+    }
+  }
+
   if (mdFiles.length === 0) {
     console.log(`\n  ⏭  ${folderName}/ 마크다운 없음, skip`);
     return;
   }
 
-  console.log(`\n📂 ${groupTitle} (${mdFiles.length} files)`);
+  console.log(`\n📂 ${groupTitle} (${mdFiles.length} files${onlyFiles ? ', 변경분만' : ''})`);
 
   // 그룹 페이지 (없으면 create, 있으면 그대로 사용 — child sub-page는 syncFile이 알아서 upsert)
   const { id: groupPageId, created } = await getOrCreatePage(parentPageId, groupTitle);
@@ -548,11 +581,45 @@ async function syncFolder(parentPageId, folderName, groupTitle) {
 // ----- entry -----
 
 async function main() {
-  console.log(`🚀 Notion sync 시작 ${DRY_RUN ? '(DRY RUN)' : ''}`);
+  const mode = INCREMENTAL ? '증분(변경분만)' : '전체';
+  console.log(`🚀 Notion sync 시작 ${DRY_RUN ? '(DRY RUN)' : ''} — ${mode}`);
   console.log(`   parent page: ${NOTION_PARENT_PAGE_ID}`);
 
+  // 증분 모드: 변경 파일 → 폴더별로 group + ROOT 분류
+  let rootDocsToSync = ROOT_DOCS;
+  const folderOnlyFiles = new Map(); // folder name → Set of basenames
+
+  if (INCREMENTAL) {
+    console.log(`   변경 파일 ${CHANGED_FILES.length}개:`);
+    for (const p of CHANGED_FILES) console.log(`     - ${p}`);
+
+    const changed = new Set(CHANGED_FILES);
+
+    // 1. ROOT_DOCS 중 변경된 것만
+    rootDocsToSync = ROOT_DOCS.filter((doc) => changed.has(`docs/${doc.file}`));
+
+    // 2. FOLDER_GROUPS 중 변경 파일이 속한 폴더 찾기
+    for (const group of FOLDER_GROUPS) {
+      const prefix = `docs/${group.folder}/`;
+      const basenamesInFolder = CHANGED_FILES.filter((p) => p.startsWith(prefix)).map((p) =>
+        p.slice(prefix.length),
+      );
+      if (basenamesInFolder.length > 0) {
+        folderOnlyFiles.set(group.folder, new Set(basenamesInFolder));
+      }
+    }
+
+    // 변경 파일이 모두 sync 대상 밖이면 (templates/, screens/ 등) 즉시 종료
+    if (rootDocsToSync.length === 0 && folderOnlyFiles.size === 0) {
+      console.log(
+        `\n⏭  변경된 파일이 sync 대상이 아님 (templates/, screens/ 또는 등록 안 된 폴더). 종료.`,
+      );
+      return;
+    }
+  }
+
   // 1. root 단일 문서
-  for (const doc of ROOT_DOCS) {
+  for (const doc of rootDocsToSync) {
     const filePath = join(DOCS_ROOT, doc.file);
     console.log(`\n📂 ${doc.title}`);
     await syncFile(NOTION_PARENT_PAGE_ID, filePath, doc.title);
@@ -561,7 +628,14 @@ async function main() {
   // 2. 폴더 그룹
   for (const group of FOLDER_GROUPS) {
     if (EXCLUDED_FOLDERS.includes(group.folder)) continue;
-    await syncFolder(NOTION_PARENT_PAGE_ID, group.folder, group.title);
+
+    if (INCREMENTAL) {
+      const onlyFiles = folderOnlyFiles.get(group.folder);
+      if (!onlyFiles) continue; // 이 폴더엔 변경 없음
+      await syncFolder(NOTION_PARENT_PAGE_ID, group.folder, group.title, { onlyFiles });
+    } else {
+      await syncFolder(NOTION_PARENT_PAGE_ID, group.folder, group.title);
+    }
   }
 
   console.log(`\n✅ sync 완료. 총 ${requestCount} Notion API 요청.`);

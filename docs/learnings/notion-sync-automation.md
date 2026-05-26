@@ -260,8 +260,9 @@ relevant pages and databases are shared with your integration.
 - **Notion AST 처리** — 우리는 정규식 기반 단순 파서. 본격은 [remark](https://github.com/remarkjs/remark) AST → Notion blocks 매퍼.
 - **Database publish** — ADR/Spec을 properties (Status, Date, Author) 있는 Notion database로
 - **이미지 publish** — `docs/screens/images/` 의 캡처를 Cloudflare R2 / S3에 업로드 후 Notion에 image block으로
-- **변경 감지 (incremental sync)** — 매번 전체 sync X, 변경된 파일만 (git diff + timestamp 비교)
 - **사내 도입 시 양방향 충돌 해결** — last-write-wins / 사람 개입 / Git의 변경을 우선
+- **Database publish** vs **Page publish** — Notion Database로 publish 시 properties(Status/Date/Author) 추가 가능
+- **content hash 기반 변경 감지** — 우리는 git diff 사용. 더 정교한 방식은 각 파일 SHA-256 → Notion property에 저장 → 비교
 
 ## 참고 링크
 
@@ -274,3 +275,97 @@ relevant pages and databases are shared with your integration.
 ## 추가 학습 기록
 
 > 같은 토픽으로 추가 학습한 내용은 아래에 날짜 헤더로 누적.
+
+### 2026-05-26 추가 — 증분 sync (git diff 기반 incremental)
+
+#### 왜 추가했나
+
+초기 구현은 매 트리거마다 전체 docs 재작성. 사이드 페이스에 부담은 없지만:
+
+- 1개 파일 변경에 모든 페이지 재작성 → ~95% 낭비
+- 1~2분 sync 시간 → 안 줄여도 되긴 하지만 비효율
+- block ID가 매번 새로워짐 → Notion 내 백링크 깨질 가능성
+
+본인 관찰: "sync 매번 새로 작성하는 거 같은데 시간이 오래 걸린다" — 정당한 지적.
+
+#### 해결 패턴: GitHub Actions의 git diff 활용
+
+```mermaid
+flowchart TD
+    A[main 푸시] --> B{event.before<br/>== zeros?}
+    B -->|Yes initial push| C[전체 sync]
+    B -->|No| D[git diff before..sha<br/>-- docs/**.md]
+    D --> E{변경 파일 있나?}
+    E -->|No| F[paths 필터로<br/>워크플로 자체 안 돔]
+    E -->|Yes| G[SYNC_CHANGED_FILES<br/>환경변수 전달]
+    G --> H[스크립트가<br/>해당 파일만 sync]
+
+    I[workflow_dispatch] --> J{force_full_sync?}
+    J -->|Yes| C
+    J -->|No| C
+```
+
+수동 트리거(`workflow_dispatch`)는 안전상 항상 전체 sync. 보통 "뭔가 깨진 거 같아서 다시 돌리고 싶을 때" 누르므로.
+
+#### 핵심 로직
+
+**Workflow** (`.github/workflows/notion-sync.yml`):
+
+```yaml
+- name: Determine changed docs
+  id: changed
+  run: |
+    if [[ initial push 또는 workflow_dispatch ]]; then
+      echo "all=true" >> "$GITHUB_OUTPUT"
+    else
+      CHANGED=$(git diff --name-only "$BEFORE" "$SHA" -- 'docs/**' | grep -E '\.md$' | tr '\n' ',')
+      echo "files=$CHANGED" >> "$GITHUB_OUTPUT"
+    fi
+
+- name: Sync
+  env:
+    SYNC_CHANGED_FILES: ${{ steps.changed.outputs.files }}
+    SYNC_ALL: ${{ steps.changed.outputs.all }}
+```
+
+**스크립트** (`scripts/sync-to-notion.mjs`):
+
+```javascript
+const CHANGED_FILES = (process.env.SYNC_CHANGED_FILES ?? '')
+  .split(',')
+  .filter((p) => p.endsWith('.md') && p.startsWith('docs/'));
+const SYNC_ALL = process.env.SYNC_ALL === 'true' || process.argv.includes('--all');
+const INCREMENTAL = !SYNC_ALL && CHANGED_FILES.length > 0;
+
+if (INCREMENTAL) {
+  // 변경 파일이 속한 폴더만 sync, 그 폴더의 변경 basename만 처리
+  // 그룹 페이지(ADR/Specs/Learnings)는 변경 있는 폴더만 upsert
+}
+```
+
+#### Trade-off 인식
+
+| 항목                    | 전체 sync (이전) | 증분 sync (현재)            |
+| ----------------------- | ---------------- | --------------------------- |
+| 코드 단순성             | ⭐⭐⭐           | ⭐⭐                        |
+| 한 파일 변경 시간       | ~1~2분           | ~10~30초                    |
+| 5개 변경 시간           | ~1~2분           | ~30초~1분                   |
+| 안전성 (sync 누락 위험) | 0                | git diff 결과 정확도에 의존 |
+| 첫 sync / fallback      | 단순             | `SYNC_ALL=true`로 fallback  |
+
+#### 사내 도입 시 추가 고민 거리
+
+- **PR 단위 변경**: main push 외에 PR open 시 preview sync? Notion에 PR별 separate page 또는 staging workspace?
+- **충돌**: Notion에서 누가 수정하면? — 우리는 단방향이라 무시. 사내 도입 시 정책 필요.
+- **rate limit 가속**: 빌드 캐시 + 병렬 처리 (현재는 직렬 + 350ms 대기).
+- **content hash 추가**: 변경 감지는 git diff로 충분하지만, 컨텐츠 동일한데 mtime만 바뀐 케이스 회피 위해 hash 추가 가능.
+
+#### 로컬에서 증분 sync 시도
+
+```bash
+# 특정 파일만 sync
+SYNC_CHANGED_FILES="docs/learnings/notion-sync-automation.md" pnpm sync:notion
+
+# 강제 전체 sync
+pnpm sync:notion -- --all
+```

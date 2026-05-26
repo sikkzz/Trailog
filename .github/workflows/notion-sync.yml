@@ -1,6 +1,6 @@
 name: Sync docs to Notion
 
-# docs/ 변경 시 Notion에 자동 publish
+# docs/ 변경 시 Notion에 자동 publish (증분 sync — 변경 파일만)
 # 자세한 설계: docs/decisions/0005-docs-publishing-notion-sync.md
 on:
   push:
@@ -11,6 +11,12 @@ on:
       - '.github/workflows/notion-sync.yml'
   # 수동 트리거 (Actions 탭에서 "Run workflow")
   workflow_dispatch:
+    inputs:
+      force_full_sync:
+        description: '강제 전체 sync (체크 시 모든 docs 재작성)'
+        required: false
+        type: boolean
+        default: false
 
 # 동시 실행 차단 (이전 sync 진행 중이면 대기) — Notion API rate limit 충돌 방지
 concurrency:
@@ -25,6 +31,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # 변경 파일 git diff 위해 직전 commit까지 fetch
+          fetch-depth: 2
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -39,11 +48,37 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # 변경 파일 추출 (증분 sync용).
+      # - workflow_dispatch + force_full_sync=true → SYNC_ALL=true
+      # - push 이벤트 → git diff before..sha 로 변경 파일 추출
+      # - initial push (before가 0000...) → SYNC_ALL=true (fallback)
+      - name: Determine changed docs
+        id: changed
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.force_full_sync }}" == "true" ]]; then
+            echo "수동 트리거 + force_full_sync=true → 전체 sync"
+            echo "all=true" >> "$GITHUB_OUTPUT"
+            echo "files=" >> "$GITHUB_OUTPUT"
+          elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "수동 트리거 (force 안함) → 전체 sync (안전)"
+            echo "all=true" >> "$GITHUB_OUTPUT"
+            echo "files=" >> "$GITHUB_OUTPUT"
+          elif [[ "${{ github.event.before }}" == "0000000000000000000000000000000000000000" ]]; then
+            echo "Initial push (before가 0000...) → 전체 sync"
+            echo "all=true" >> "$GITHUB_OUTPUT"
+            echo "files=" >> "$GITHUB_OUTPUT"
+          else
+            CHANGED=$(git diff --name-only "${{ github.event.before }}" "${{ github.sha }}" -- 'docs/**' | grep -E '\.md$' | tr '\n' ',' | sed 's/,$//')
+            echo "변경된 docs 파일: $CHANGED"
+            echo "all=false" >> "$GITHUB_OUTPUT"
+            echo "files=$CHANGED" >> "$GITHUB_OUTPUT"
+          fi
+
       # 실제 sync 실행
-      # NOTION_TOKEN: GitHub repo Settings → Secrets and variables → Actions 에 등록
-      # NOTION_PARENT_PAGE_ID: 동일
       - name: Sync to Notion
         run: pnpm sync:notion
         env:
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
           NOTION_PARENT_PAGE_ID: ${{ secrets.NOTION_PARENT_PAGE_ID }}
+          SYNC_CHANGED_FILES: ${{ steps.changed.outputs.files }}
+          SYNC_ALL: ${{ steps.changed.outputs.all }}
