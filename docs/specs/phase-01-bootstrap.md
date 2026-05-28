@@ -1,6 +1,6 @@
 # Phase 1: 기초 셋업 + 조기 배포 Spec
 
-> **상태**: ✅ Completed (Android 검증 보류, EAS Cloud 빌드 큐 대기 중)
+> **상태**: ✅ Completed (2026-05-28 — iOS + Android 모두 검증)
 > **작성일**: 2026-05-22
 > **작성**: Claude (프롬프팅: @sikkzz)
 > **기간 목표**: 1.5~2주
@@ -61,7 +61,7 @@
 
 - [x] EAS 프로젝트 생성 + `eas.json` 설정 (`apps/mobile/eas.json`, Phase 4 자산으로 보존)
 - [x] **로컬 Xcode + Personal Team**으로 본인 iPhone에 development build 1회 설치 성공 (무료 Apple ID, 7일 ad-hoc — EAS Cloud 실기기 빌드는 Apple Developer Program 필요, Phase 4 출시 임박 시 가입 예정). 2026-05-25 검증: iPhone 14 + iOS 26.4.2 + tunnel 모드(ngrok)로 Metro dev server 연결 성공.
-- [ ] ~~development build를 본인 Android 디바이스/에뮬레이터에 1회 설치 성공~~ → **Q6 결정으로 deferred** (갤럭시 입수 시점 또는 Phase 4 출시 직전)
+- [x] **EAS Cloud Android build** + 본인 갤럭시에 sideload 설치 + Metro dev server(LAN) 연결 검증 (2026-05-28). Apple Developer 같은 가입 절차 없이 무료로 진행 가능 (Android sideload 공식 지원). Keystore는 EAS 서버 자동 생성 + 보관.
 
 ### 4.6 문서
 
@@ -127,7 +127,7 @@ flowchart TD
 | Q3  | Node 버전 + pnpm 버전 고정 정책                | ✅ 확정 (2026-05-25): `.nvmrc=20.19.4` (Expo SDK 56 권장 minimum) + `packageManager=pnpm@9.9.0` (corepack 자동 활성). 루트 package.json `engines.node>=20.19.4`. | 2026-05-25 확정                                    |
 | Q4  | 커밋 컨벤션 (형식 + 강제 도구)                 | ✅ 형식: prefix(영어) + 본문(한글). ✅ husky + commitlint + lint-staged 도입 확정 (2026-05-24)                                                                   | 4계층 안전망 일부 (husky 로컬 + GitHub Actions CI) |
 | Q5  | 모노레포 패키지명 prefix (`@trailog/*`)        | ✅ 확정 (2026-05-25): `@trailog/eslint-config`, `@trailog/mobile`, `@trailog/server` 적용. workspace 의존성은 `workspace:^`.                                     | 2026-05-25 확정                                    |
-| Q6  | Android 테스트 디바이스 (실기기 vs 에뮬레이터) | ✅ deferred 결정 (2026-05-25): iOS 본인 iPhone만 Phase 1 충족. Android는 갤럭시 입수 시점 또는 Phase 4 출시 직전.                                                | 2026-05-25 확정                                    |
+| Q6  | Android 테스트 디바이스 (실기기 vs 에뮬레이터) | ✅ 확정 (2026-05-28): 본인 갤럭시 실기기 + EAS Cloud Android dev build. APK sideload + LAN tunnel 검증 완료. (당초 deferred 결정이었으나 집에서 갤럭시로 진행)   | 2026-05-28 확정                                    |
 | Q7  | docs publish 자동화 도구                       | ✅ ADR-0005 Accepted (Notion + 자체 sync 스크립트, 2026-05-24)                                                                                                   | 2026-05-24 확정                                    |
 
 ## 10. 학습 노트 작성 예상 토픽
@@ -156,3 +156,4 @@ flowchart TD
 | 2026-05-25 | **체크박스 일관성 정리**. 작업 완료됐지만 체크박스 미박제였던 4.1(로컬 환경 5개), 4.3(CI 3개), 4.4(백엔드 배포 3개), 4.6(ADR/학습노트/docs publish 3개) 항목 모두 ✅. 남은 항목: 4.5 Android(deferred) + 4.6 README.md (Phase 1 마지막 미션).                                                                                                                                                                                                                                                                      |
 | 2026-05-25 | **README.md 작성** (Phase 1 4.6 최종 항목 ✅). "처음 본 사람이 5분 안에 셋업 가능" 수준. 프로젝트 소개 + Quick Start(5단계) + 디렉토리 구조 + 명령어 표(개발/인프라/품질/모바일 빌드/문서) + 환경변수 가이드 + CI/CD 흐름 + 기술 스택 + 문서 안내 + 진행 상황. Q6 정정 예정(Android Phase 1 내 진행, 갤럭시 집에 있음). Phase 1 잔여: Android dev build + 완료 회고.                                                                                                                                               |
 | 2026-05-28 | **Phase 1 본격 완료 회고**. 25개 수용 기준 중 24개 통과, Android dev build 검증만 EAS Cloud 빌드 큐 대기 중(별도 박제 예정). 학습 영역 #1 (인프라/DevOps) 1차 실전 완수: 모노레포(pnpm + Turborepo) + Docker Compose + NestJS + Expo + ESLint/Prettier/TS strict + husky 4계층 + GitHub Actions(CI/deploy/notion-sync) + Fly.io + iOS dev build(로컬 Xcode) + Notion sync 자동화(증분). ADR 5건 + 학습 노트 12건 누적. 한 줄 평: "이제 기능만 추가하면 되는 상태" — 본인 체감 충족. 다음: Phase 2 진입 (인증부터). |
+| 2026-05-28 | **🎉 Phase 1 4.5 Android 항목 충족** ✅ — Phase 1 진짜 100% 완료. 본인 갤럭시 + EAS Cloud Android dev build + APK sideload + LAN 모드 Metro dev server 연결 검증. Apple Developer 같은 가입 절차 없이 무료 진행 (Android sideload 공식 지원). Keystore EAS 서버 자동 보관. Q6 정정: deferred → 진행 완료. Phase 1 spec 25/25 ✅.                                                                                                                                                                                   |
