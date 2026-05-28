@@ -122,17 +122,17 @@
 
 ### 서버 (백엔드)
 
-| 항목        | 선택                                     |
-| ----------- | ---------------------------------------- |
-| 프레임워크  | NestJS                                   |
-| 언어        | TypeScript                               |
-| ORM         | Prisma 또는 TypeORM                      |
-| DB          | PostgreSQL (PostGIS 확장으로 위치 쿼리)  |
-| 작업 큐     | BullMQ                                   |
-| 캐시        | Redis                                    |
-| 이미지 처리 | sharp (썸네일/WebP 변환)                 |
-| 실시간      | NestJS Gateway (Socket.io) 또는 SSE      |
-| 인증        | JWT + Refresh Token (직접 구현하여 학습) |
+| 항목        | 선택                                              |
+| ----------- | ------------------------------------------------- |
+| 프레임워크  | NestJS                                            |
+| 언어        | TypeScript                                        |
+| ORM         | **TypeORM 0.3** (ADR-0006 확정, 친숙도 정복) |
+| DB          | PostgreSQL (PostGIS 확장으로 위치 쿼리)           |
+| 작업 큐     | BullMQ                                            |
+| 캐시        | Redis                                             |
+| 이미지 처리 | sharp (썸네일/WebP 변환)                          |
+| 실시간      | NestJS Gateway (Socket.io) 또는 SSE               |
+| 인증        | JWT + Refresh Token (직접 구현하여 학습)          |
 
 ### 인프라
 
@@ -451,3 +451,4 @@ flowchart TD
 | 2026-05-28 | **Phase 2 spec Draft 작성** (`docs/specs/phase-02-core-features.md`). 범위 옵션 C 채택 (B + 지도 = 인증 + DB + 사진 업로드 + 이미지 처리 + EXIF + 모바일 첫 화면 + 지도 표시). 6주 호흡, sub-phase 7개(4.1~4.7) 분할로 부풀어도 흐름 유지. Open Questions 11건 (ORM, JWT 저장 위치, 이미지 저장소, 큐 도구, EXIF 라이브러리, 지도 라이브러리, UI 패턴, 상태관리, form, 위치 권한, DB 호스팅). ADR 후보 3건 (R2/지도/DB 호스팅). 학습 영역 #2 + #3 동시 충족. Phase 4까지의 MVP 출시 가능 상태 목표.                                                           |
 | 2026-05-28 | **expo-updates 패키지 추가** (Android dev build의 channel 경고 해소). Phase 3+ OTA 업데이트 자산이 자연스럽게 미리 셋업됨. app.json에 runtimeVersion + updates.url 자동 추가.                                                                                                                                                                                                                                                                                                                                                                                 |
 | 2026-05-28 | **🎉 Phase 1 본격 완료 회고**. 25개 수용 기준 중 24개 통과 (Android dev build 검증만 EAS Cloud 빌드 큐 대기 중, 별도 박제). Phase 1 spec 상태 Draft → ✅ Completed. 학습 영역 #1 (인프라/DevOps) 1차 실전 완수: pnpm 모노레포 + Turborepo + Docker Compose + NestJS + Expo + husky 4계층 + GitHub Actions(CI/deploy/sync) + Fly.io + iOS dev build + Notion sync 자동화(증분). ADR 5건 + 학습 노트 12건 누적. "이제 기능만 추가하면 되는 상태" 체감 충족. 다음: Phase 2 (인증 4.1부터).                                                                       |
+| 2026-05-28 | **Q1 ORM 확정 — TypeORM** ([ADR-0006](./decisions/0006-orm-typeorm.md)). 실무 환경(NestJS + TypeORM) 친숙도를 사이드에서 "제대로 학습"으로 정복하는 전략. 본진(이미지/미디어/지도) 시간 보호 + NestJS 정석 통합 + 참조 코드 기여 가능. Prisma는 사이드 후속 또는 별도 프로젝트 비교 학습으로 미룸. 4장 서버 스택 ORM 확정 + Phase 2 spec Q1 박제.                                                                                                                                                                                                             |
