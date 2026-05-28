@@ -29,6 +29,12 @@
         "projectId": "2a7aa9ab-d621-4cd7-b7c8-793cdbab72f1"
       }
     },
-    "owner": "sling0623"
+    "owner": "sling0623",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/2a7aa9ab-d621-4cd7-b7c8-793cdbab72f1"
+    }
   }
 }
