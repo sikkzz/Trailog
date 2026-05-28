@@ -10,6 +10,7 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { UsersModule } from '../users/users.module';
+import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 
 @Module({
@@ -17,6 +18,7 @@ import { AuthService } from './auth.service';
     UsersModule,
     JwtModule.register({}), // 실제 secret/expiresIn은 AuthService에서 sign할 때 전달
   ],
+  controllers: [AuthController],
   providers: [AuthService],
   exports: [AuthService],
 })
