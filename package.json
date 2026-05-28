@@ -36,13 +36,5 @@
     "turbo": "^2.0.0",
     "typescript": "^5.5.0"
   },
-  "lint-staged": {
-    "{apps,packages}/**/*.{ts,tsx,js,jsx,mjs,cjs}": [
-      "eslint --fix",
-      "prettier --write"
-    ],
-    "*.{json,md,yaml,yml,js,mjs,cjs}": [
-      "prettier --write"
-    ]
-  }
+  "//lint-staged": "룰은 .lintstagedrc.cjs로 분리 — ESLint v9 flat config가 workspace cwd 필요해서 함수형 룰 사용 (root config 없으면 cwd 못 찾음)"
 }
