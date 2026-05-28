@@ -173,19 +173,19 @@ flowchart LR
 
 각 Q는 해당 sub-phase 직전에 결정 + 큰 건 ADR. 모두 Phase 2 진입 후 결정.
 
-| #   | 사안                                              | 후보                                                                            | 결정 시점       |
-| --- | ------------------------------------------------- | ------------------------------------------------------------------------------- | --------------- |
-| Q1  | ORM (Prisma vs TypeORM)                           | ✅ ADR-0006 Accepted (TypeORM, 2026-05-28) — 친숙도 정복 + 본진 시간 보호. | 2026-05-28 확정 |
-| Q2  | JWT 저장 위치 (모바일)                            | secure storage (expo-secure-store) 잠정 / 다른 옵션?                            | 4.1             |
-| Q3  | 이미지 저장소 (R2 vs Supabase Storage vs S3)      | R2 잠정 (egress 0) / Supabase (DB와 함께)                                       | 4.3 (ADR 후보)  |
-| Q4  | 큐 도구 (BullMQ vs setImmediate vs cron)          | BullMQ 잠정 (학습 + 표준 패턴)                                                  | 4.4             |
-| Q5  | EXIF 라이브러리 (exifr vs piexifjs vs sharp 내장) | exifr 잠정 (가벼움)                                                             | 4.5             |
-| Q6  | 지도 라이브러리 (react-native-maps vs MapLibre)   | react-native-maps 잠정 (Expo 친화) / MapLibre (오픈)                            | 4.7 (ADR 후보)  |
-| Q7  | 사진 카탈로그 UI (Trip-first vs Photo-first)      | Trip-first 잠정 (사용자 멘탈 모델)                                              | 4.6             |
-| Q8  | 상태관리 (Zustand vs Redux Toolkit + RQ)          | Zustand 잠정 (사이드 규모, 단순)                                                | 4.6             |
-| Q9  | 사진 form (react-hook-form 도입?)                 | 도입 잠정 (모바일 form 표준)                                                    | 4.6             |
-| Q10 | 사용자 위치 권한 UX                               | 첫 진입 X, 지도 탭 클릭 시 요청                                                 | 4.7             |
-| Q11 | DB 호스팅 (Supabase vs Neon vs 로컬 docker)       | Supabase 잠정 (무료 + Postgres + Auth는 X)                                      | 4.2 (ADR 후보)  |
+| #   | 사안                                              | 후보                                                                                                                                                                      | 결정 시점       |
+| --- | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
+| Q1  | ORM (Prisma vs TypeORM)                           | ✅ ADR-0006 Accepted (TypeORM, 2026-05-28) — 친숙도 정복 + 본진 시간 보호.                                                                                           | 2026-05-28 확정 |
+| Q2  | JWT 저장 + 전송 방식 (모바일)                     | ✅ 확정 (2026-05-29): expo-secure-store(OS Keychain/Keystore) + Bearer header. Trailog 모바일 only라 XSS/CSRF 위험 X → cookie 이점 무용. 참조 (실무 웹)와 의도적 다른 선택. | 2026-05-29 확정 |
+| Q3  | 이미지 저장소 (R2 vs Supabase Storage vs S3)      | R2 잠정 (egress 0) / Supabase (DB와 함께)                                                                                                                                 | 4.3 (ADR 후보)  |
+| Q4  | 큐 도구 (BullMQ vs setImmediate vs cron)          | BullMQ 잠정 (학습 + 표준 패턴)                                                                                                                                            | 4.4             |
+| Q5  | EXIF 라이브러리 (exifr vs piexifjs vs sharp 내장) | exifr 잠정 (가벼움)                                                                                                                                                       | 4.5             |
+| Q6  | 지도 라이브러리 (react-native-maps vs MapLibre)   | react-native-maps 잠정 (Expo 친화) / MapLibre (오픈)                                                                                                                      | 4.7 (ADR 후보)  |
+| Q7  | 사진 카탈로그 UI (Trip-first vs Photo-first)      | Trip-first 잠정 (사용자 멘탈 모델)                                                                                                                                        | 4.6             |
+| Q8  | 상태관리 (Zustand vs Redux Toolkit + RQ)          | Zustand 잠정 (사이드 규모, 단순)                                                                                                                                          | 4.6             |
+| Q9  | 사진 form (react-hook-form 도입?)                 | 도입 잠정 (모바일 form 표준)                                                                                                                                              | 4.6             |
+| Q10 | 사용자 위치 권한 UX                               | 첫 진입 X, 지도 탭 클릭 시 요청                                                                                                                                           | 4.7             |
+| Q11 | DB 호스팅 (Supabase vs Neon vs 로컬 docker)       | Supabase 잠정 (무료 + Postgres + Auth는 X)                                                                                                                                | 4.2 (ADR 후보)  |
 
 ## 10. 학습 노트 작성 예상 토픽
 
@@ -203,7 +203,8 @@ flowchart LR
 
 ## 11. 변경 이력
 
-| 날짜       | 변경 내용                                                                                                                                                                                                                                         |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-05-28 | 최초 작성. 옵션 C (B + 지도) 범위 확정. 6주 호흡, sub-phase 7개로 분할. Open Questions 11건 — 각 sub-phase 직전에 결정 + ADR 후보 3건 (Q3 R2, Q6 지도, Q11 DB 호스팅).                                                                            |
-| 2026-05-28 | Q1 ORM 확정 (TypeORM, [ADR-0006](../decisions/0006-orm-typeorm.md)). 실무 환경 친숙도를 사이드에서 "제대로 학습"으로 정복 + 본진(이미지/미디어/지도) 시간 보호 + NestJS 정석. Prisma는 사이드 후속 또는 별도 프로젝트로 미룸. 4.1 인증 진행 시작. |
+| 날짜       | 변경 내용                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 2026-05-28 | 최초 작성. 옵션 C (B + 지도) 범위 확정. 6주 호흡, sub-phase 7개로 분할. Open Questions 11건 — 각 sub-phase 직전에 결정 + ADR 후보 3건 (Q3 R2, Q6 지도, Q11 DB 호스팅).                                                                                                                                                                                                                                                                           |
+| 2026-05-28 | Q1 ORM 확정 (TypeORM, [ADR-0006](../decisions/0006-orm-typeorm.md)). 실무 환경 친숙도를 사이드에서 "제대로 학습"으로 정복 + 본진(이미지/미디어/지도) 시간 보호 + NestJS 정석. Prisma는 사이드 후속 또는 별도 프로젝트로 미룸. 4.1 인증 진행 시작.                                                                                                                                                                                                |
+| 2026-05-29 | Q2 JWT 저장+전송 방식 확정 — expo-secure-store + Bearer header. 참조 인증 패턴(실무 웹, CSRF token, 2FA 4종, 다층 캐싱, service 11개+guard 9개) 본격 분석 후 모바일 컨텍스트엔 단순한 Bearer가 적합 결정. 참조 패턴 중 Phase 후속 채택 가치 있는 항목들(PasswordService 분리, last_login_at, Stateful logout, Redis blacklist, Token rotation, 다층 캐싱, OAuth, 2FA 등)은 메모리 `auth-deep-dive-revisit`에 박제 — Phase 3/4/5 시점에 자동 인지. |
