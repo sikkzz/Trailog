@@ -7,12 +7,23 @@
 //   Phase 4 출시 직전 검토 (auth-deep-dive-revisit 메모리).
 // - @MaxLength(72): bcrypt 한계. 72 byte 초과 시 무시되니 명시적 제약.
 
+import { ApiProperty } from '@nestjs/swagger';
 import { IsEmail, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class SignupDto {
+  @ApiProperty({
+    example: 'user@trailog.app',
+    description: '이메일 (RFC 5322 형식)',
+  })
   @IsEmail({}, { message: '올바른 이메일 형식이 아닙니다' })
   email!: string;
 
+  @ApiProperty({
+    example: 'mypassword123',
+    minLength: 8,
+    maxLength: 72,
+    description: '비밀번호 — 8자 이상 72자 이하 (bcrypt 한계)',
+  })
   @IsString()
   @MinLength(8, { message: '비밀번호는 8자 이상이어야 합니다' })
   @MaxLength(72, { message: '비밀번호는 72자 이하여야 합니다' })
