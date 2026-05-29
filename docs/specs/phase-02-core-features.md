@@ -47,7 +47,7 @@
 - [ ] `POST /auth/logout` — refresh 무효화 (서버 측 blacklist 또는 회전)
 - [ ] 모바일 secure storage (expo-secure-store)에 token 보관
 - [ ] HTTP interceptor 자동 갱신 (axios 또는 fetch wrapper)
-- [ ] 인증 학습 노트 작성 (JWT vs Session, refresh 회전 패턴, secure storage)
+- [x] 인증 학습 노트 작성 ([jwt-auth-and-refresh-rotation.md](../learnings/jwt-auth-and-refresh-rotation.md) — JWT vs Session, Bearer vs Cookie, Refresh 회전 3 패턴, bcrypt 깊이, 참조 코드 비교, Swagger 통합, 함정 8종)
 
 ### 4.2 DB 스키마 + 마이그레이션 (3일)
 
@@ -208,3 +208,4 @@ flowchart LR
 | 2026-05-28 | 최초 작성. 옵션 C (B + 지도) 범위 확정. 6주 호흡, sub-phase 7개로 분할. Open Questions 11건 — 각 sub-phase 직전에 결정 + ADR 후보 3건 (Q3 R2, Q6 지도, Q11 DB 호스팅).                                                                                                                                                                                                                                                                           |
 | 2026-05-28 | Q1 ORM 확정 (TypeORM, [ADR-0006](../decisions/0006-orm-typeorm.md)). 실무 환경 친숙도를 사이드에서 "제대로 학습"으로 정복 + 본진(이미지/미디어/지도) 시간 보호 + NestJS 정석. Prisma는 사이드 후속 또는 별도 프로젝트로 미룸. 4.1 인증 진행 시작.                                                                                                                                                                                                |
 | 2026-05-29 | Q2 JWT 저장+전송 방식 확정 — expo-secure-store + Bearer header. 참조 인증 패턴(실무 웹, CSRF token, 2FA 4종, 다층 캐싱, service 11개+guard 9개) 본격 분석 후 모바일 컨텍스트엔 단순한 Bearer가 적합 결정. 참조 패턴 중 Phase 후속 채택 가치 있는 항목들(PasswordService 분리, last_login_at, Stateful logout, Redis blacklist, Token rotation, 다층 캐싱, OAuth, 2FA 등)은 메모리 `auth-deep-dive-revisit`에 박제 — Phase 3/4/5 시점에 자동 인지. |
+| 2026-05-30 | 4.1 인증 코드 본격 완성 — Commit 1~6 (의존성 + UsersService + AuthService + Controller/DTO + JwtStrategy/Guard + Swagger). 참조 패턴 채택(401 throw 안전망, Swagger). 학습 노트 `jwt-auth-and-refresh-rotation.md` 작성 — JWT vs Session, Bearer vs Cookie, Stateless/Blacklist/Rotation 3 패턴, bcrypt 깊이, 참조 코드 비교, 함정 8종, Phase 후속 정복 항목 13 섹션. 4.1 인증 학습 노트 항목 ✅.                                                     |
