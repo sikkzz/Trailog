@@ -3,7 +3,7 @@
 > **작성일**: 2026-05-30
 > **작성**: Claude (프롬프팅: @sikkzz)
 > **학습 영역**: 인증/보안
-> **관련 문서**: [Phase 2 Spec 4.1](../specs/phase-02-core-features.md), [ADR-0006 ORM](../decisions/0006-orm-typeorm.md), [메모리 auth-deep-dive-revisit](Phase 3/4/5 자동 인지)
+> **관련 문서**: [Phase 2 Spec 4.1](../specs/phase-02-core-features.md), [ADR-0006 ORM](../decisions/0006-orm-typeorm.md). 메모리 `auth-deep-dive-revisit`(Phase 3/4/5 시점 자동 인지)와 연동.
 >
 > Phase 2 4.1 인증 본격 정복. 단순 시작 + 참조 패턴 비교 + Phase 후속 확장 시점 박제.
 
