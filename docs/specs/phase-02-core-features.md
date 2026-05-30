@@ -38,16 +38,20 @@
 
 ## 4. 수용 기준 (Acceptance Criteria) — sub-phase별
 
-### 4.1 인증 (1주)
+### 4.1 인증 (1주) — ✅ 완료 (2026-05-30)
 
-- [ ] DB User 엔티티 (Prisma 또는 TypeORM — Q1)
-- [ ] `POST /auth/signup` — 이메일/비밀번호 회원가입, bcrypt hash
-- [ ] `POST /auth/login` — access token(15분) + refresh token(7일) 발급
-- [ ] `POST /auth/refresh` — refresh로 access 재발급
-- [ ] `POST /auth/logout` — refresh 무효화 (서버 측 blacklist 또는 회전)
-- [ ] 모바일 secure storage (expo-secure-store)에 token 보관
-- [ ] HTTP interceptor 자동 갱신 (axios 또는 fetch wrapper)
+- [x] DB User 엔티티 (TypeORM, [ADR-0006](../decisions/0006-orm-typeorm.md))
+- [x] `POST /auth/signup` — 이메일/비밀번호 회원가입, bcrypt hash (cost factor 10)
+- [x] `POST /auth/login` — access token(15분) + refresh token(7일) 발급
+- [x] `POST /auth/refresh` — refresh로 새 token pair 재발급
+- [x] `POST /auth/logout` — Stateless (no-op). Phase 4에 Redis blacklist 전환 검토 (메모리 `auth-deep-dive-revisit`)
+- [x] 모바일 secure storage (expo-secure-store) — iOS Keychain + Android Keystore
+- [x] HTTP interceptor 자동 갱신 (fetch wrapper + refreshPromise 단일화 + \_retried flag — 참조 RestAPIInstance 패턴 채택)
 - [x] 인증 학습 노트 작성 ([jwt-auth-and-refresh-rotation.md](../learnings/jwt-auth-and-refresh-rotation.md) — JWT vs Session, Bearer vs Cookie, Refresh 회전 3 패턴, bcrypt 깊이, 참조 코드 비교, Swagger 통합, 함정 8종)
+- [x] (추가) NestJS Swagger 인터랙티브 API 문서 + Bearer auth (참조 패턴 채택)
+- [x] (추가) JwtStrategy + JwtAuthGuard + `@CurrentUser` 401 안전망 (참조 `@UserParam` 패턴 채택)
+
+검증: Swagger UI(/api/docs)로 백엔드 8 단계 흐름 검증 완료. 모바일 인증 client는 Phase 2 4.6 모바일 첫 화면 진입 시 자연 검증 (dev build 재빌드는 expo-image-picker 등 native module 추가 시점에 한 번에).
 
 ### 4.2 DB 스키마 + 마이그레이션 (3일)
 
@@ -203,9 +207,10 @@ flowchart LR
 
 ## 11. 변경 이력
 
-| 날짜       | 변경 내용                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 2026-05-28 | 최초 작성. 옵션 C (B + 지도) 범위 확정. 6주 호흡, sub-phase 7개로 분할. Open Questions 11건 — 각 sub-phase 직전에 결정 + ADR 후보 3건 (Q3 R2, Q6 지도, Q11 DB 호스팅).                                                                                                                                                                                                                                                                           |
-| 2026-05-28 | Q1 ORM 확정 (TypeORM, [ADR-0006](../decisions/0006-orm-typeorm.md)). 실무 환경 친숙도를 사이드에서 "제대로 학습"으로 정복 + 본진(이미지/미디어/지도) 시간 보호 + NestJS 정석. Prisma는 사이드 후속 또는 별도 프로젝트로 미룸. 4.1 인증 진행 시작.                                                                                                                                                                                                |
-| 2026-05-29 | Q2 JWT 저장+전송 방식 확정 — expo-secure-store + Bearer header. 참조 인증 패턴(실무 웹, CSRF token, 2FA 4종, 다층 캐싱, service 11개+guard 9개) 본격 분석 후 모바일 컨텍스트엔 단순한 Bearer가 적합 결정. 참조 패턴 중 Phase 후속 채택 가치 있는 항목들(PasswordService 분리, last_login_at, Stateful logout, Redis blacklist, Token rotation, 다층 캐싱, OAuth, 2FA 등)은 메모리 `auth-deep-dive-revisit`에 박제 — Phase 3/4/5 시점에 자동 인지. |
-| 2026-05-30 | 4.1 인증 코드 본격 완성 — Commit 1~6 (의존성 + UsersService + AuthService + Controller/DTO + JwtStrategy/Guard + Swagger). 참조 패턴 채택(401 throw 안전망, Swagger). 학습 노트 `jwt-auth-and-refresh-rotation.md` 작성 — JWT vs Session, Bearer vs Cookie, Stateless/Blacklist/Rotation 3 패턴, bcrypt 깊이, 참조 코드 비교, 함정 8종, Phase 후속 정복 항목 13 섹션. 4.1 인증 학습 노트 항목 ✅.                                                     |
+| 날짜       | 변경 내용                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-05-28 | 최초 작성. 옵션 C (B + 지도) 범위 확정. 6주 호흡, sub-phase 7개로 분할. Open Questions 11건 — 각 sub-phase 직전에 결정 + ADR 후보 3건 (Q3 R2, Q6 지도, Q11 DB 호스팅).                                                                                                                                                                                                                                                                                                                      |
+| 2026-05-28 | Q1 ORM 확정 (TypeORM, [ADR-0006](../decisions/0006-orm-typeorm.md)). 실무 환경 친숙도를 사이드에서 "제대로 학습"으로 정복 + 본진(이미지/미디어/지도) 시간 보호 + NestJS 정석. Prisma는 사이드 후속 또는 별도 프로젝트로 미룸. 4.1 인증 진행 시작.                                                                                                                                                                                                                                           |
+| 2026-05-29 | Q2 JWT 저장+전송 방식 확정 — expo-secure-store + Bearer header. 참조 인증 패턴(실무 웹, CSRF token, 2FA 4종, 다층 캐싱, service 11개+guard 9개) 본격 분석 후 모바일 컨텍스트엔 단순한 Bearer가 적합 결정. 참조 패턴 중 Phase 후속 채택 가치 있는 항목들(PasswordService 분리, last_login_at, Stateful logout, Redis blacklist, Token rotation, 다층 캐싱, OAuth, 2FA 등)은 메모리 `auth-deep-dive-revisit`에 박제 — Phase 3/4/5 시점에 자동 인지.                                            |
+| 2026-05-30 | 4.1 인증 코드 본격 완성 — Commit 1~6 (의존성 + UsersService + AuthService + Controller/DTO + JwtStrategy/Guard + Swagger). 참조 패턴 채택(401 throw 안전망, Swagger). 학습 노트 `jwt-auth-and-refresh-rotation.md` 작성 — JWT vs Session, Bearer vs Cookie, Stateless/Blacklist/Rotation 3 패턴, bcrypt 깊이, 참조 코드 비교, 함정 8종, Phase 후속 정복 항목 13 섹션. 4.1 인증 학습 노트 항목 ✅.                                                                                                |
+| 2026-05-30 | 4.1 인증 **완료** — Commit 8 (모바일 인증 client). 참조 프론트 `RestAPIInstance` 실측 후 채택/거부 결정: 채택 5건(refreshPromise 단일화, `_retried` flag, isRefreshEndpoint, `x-client-platform`, ApiError class) / 거부 4건(class 2단계 wrapper, setAPIErrorCallback 전역, APIError.method, Cookie+CSRF). 의도적 다양화 — 참조 axios → 사이드 fetch wrapper로 interceptor 직접 정복. 검증은 Phase 2 4.6 모바일 첫 화면 진입 시 자연 검증. 다음 단계: Phase 2 4.2 DB 스키마 + 마이그레이션. |
