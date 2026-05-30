@@ -28,13 +28,13 @@
 
 ## 3. 사용자 스토리
 
-| As a      | I want to                                      | So that                            |
-| --------- | ---------------------------------------------- | ---------------------------------- |
-| 첫 사용자 | 회원가입하고 로그인                            | 내 데이터를 가질 수 있다           |
-| 여행자    | 여행을 만들고 사진을 올림                      | 사진이 어떤 여행에 속하는지 정리됨 |
-| 여행자    | 사진을 올리면 자동으로 촬영 시간/위치가 추출됨 | 일일이 메타데이터 입력 안 해도 됨  |
-| 여행자    | 지도에서 내 사진들 보기                        | 어디를 다녔는지 시각적으로 확인    |
-| 여행자    | 사진 썸네일이 빨리 로드됨                      | 모바일 데이터/배터리 절약          |
+| As a      | I want to                                             | So that                              |
+| --------- | ----------------------------------------------------- | ------------------------------------ |
+| 첫 사용자 | 회원가입하고 로그인                                   | 내 데이터를 가질 수 있다             |
+| 사용자    | Moment(여행/카페/산책/단발 외출)을 만들고 사진을 올림 | 사진이 어떤 순간에 속하는지 정리됨   |
+| 사용자    | 사진을 올리면 자동으로 촬영 시간/위치가 추출됨        | 일일이 메타데이터 입력 안 해도 됨    |
+| 사용자    | 지도에서 내 사진들 보기                               | 어디를 다녔는지 시각적으로 확인/회상 |
+| 사용자    | 사진 썸네일이 빨리 로드됨                             | 모바일 데이터/배터리 절약            |
 
 ## 4. 수용 기준 (Acceptance Criteria) — sub-phase별
 
@@ -56,7 +56,7 @@
 ### 4.2 DB 인프라 준비 (PostGIS + 자동 migration + 학습) — ✅ 완료 (2026-05-30)
 
 > **방식 변경 (2026-05-30 메모리 `feedback-feature-first-schema` 박제)**:
-> Entity 미리 다 설계 X. Trip/Photo 등 도메인 entity는 **각 feature sub-phase 진입 시점**에 점진 작성.
+> Entity 미리 다 설계 X. Moment/Photo 등 도메인 entity는 **각 feature sub-phase 진입 시점**에 점진 작성.
 > 4.2엔 인프라 준비 (PostGIS 확장 enable + 자동 migration CI + 일반 학습)만.
 
 - [x] ORM 선택 (Q1) + 도입 — TypeORM ([ADR-0006](../decisions/0006-orm-typeorm.md))
@@ -71,16 +71,16 @@
 
 **4.2에서 entity 작성 X**:
 
-- Trip entity → 4.3 진입 시 (사진 업로드 흐름에 Trip 만들기 포함)
-- Photo entity → 4.3 진입 시 (최소 컬럼 — id, tripId, userId, originalUrl 등)
+- Moment entity → 4.3 진입 시 (사진 업로드 흐름에 Moment 만들기 포함)
+- Photo entity → 4.3 진입 시 (최소 컬럼 — id, momentId, userId, originalUrl 등)
 - Photo.thumbnailUrls / processingStatus → 4.4 sharp 작업 진입 시 추가
 - Photo.takenAt / location (PostGIS Point) / exifJson → 4.5 EXIF 진입 시 추가
 - User 보강 (displayName, lastLoginAt 등) → 4.6 모바일 화면 디자인 시점에 필요분만
 
 ### 4.3 사진 업로드 인프라 (R2 presigned URL) (1주)
 
-- [ ] **Trip entity 초안** + 마이그레이션 (id, userId FK, title, startedAt, endedAt — 만들기 기능에 필요한 최소 컬럼)
-- [ ] **Photo entity 초안** + 마이그레이션 (id, tripId FK, userId FK denorm, originalUrl, createdAt/updatedAt — 업로드 흐름에 필요한 최소 컬럼)
+- [ ] **Moment entity 초안** + 마이그레이션 (id, userId FK, title, startedAt, endedAt — 만들기 기능에 필요한 최소 컬럼). 도메인: 여행/카페/산책/단발 무관.
+- [ ] **Photo entity 초안** + 마이그레이션 (id, momentId FK, userId FK denorm, originalUrl, createdAt/updatedAt — 업로드 흐름에 필요한 최소 컬럼)
 - [ ] Cloudflare R2 버킷 생성 + IAM 토큰
 - [ ] `POST /photos/upload-url` → presigned PUT URL 발급 (5분 만료)
 - [ ] 클라이언트가 R2에 **직접 업로드** (서버 안 거침, 트래픽 비용 절감)
@@ -112,7 +112,7 @@
 
 ### 4.6 모바일 첫 화면 (3일)
 
-- [ ] Expo Router 라우트 구조 (`(auth)/login`, `(auth)/signup`, `(tabs)/trips`, `(tabs)/map`, `photos/[id]`)
+- [ ] Expo Router 라우트 구조 (`(auth)/login`, `(auth)/signup`, `(tabs)/moments`, `(tabs)/map`, `photos/[id]`)
 - [ ] 로그인/회원가입 화면 (react-hook-form + zod)
 - [ ] 메인 — 본인 여행 리스트 (React Query 적용)
 - [ ] 여행 상세 — 그 안의 사진들 grid
@@ -151,9 +151,9 @@
 flowchart LR
     Signup([회원가입]) --> Login[로그인]
     Login --> Main[메인: 여행 리스트]
-    Main --> CreateTrip[새 여행 만들기]
-    CreateTrip --> TripDetail[여행 상세]
-    TripDetail --> Upload[사진 업로드]
+    Main --> CreateMoment[새 Moment 만들기]
+    CreateMoment --> MomentDetail[Moment 상세]
+    MomentDetail --> Upload[사진 업로드]
     Upload --> Presigned[서버에 presigned URL 요청]
     Presigned --> R2[R2에 직접 업로드]
     R2 --> Notify[서버에 완료 알림]
@@ -163,7 +163,7 @@ flowchart LR
     EXIF --> Thumb[썸네일 생성]
     Thumb --> R2Thumb[R2에 썸네일 저장]
     R2Thumb --> Done[Photo.status=done]
-    Done --> TripDetail
+    Done --> MomentDetail
     Main --> MapTab[지도 탭]
     MapTab --> Pins[모든 사진 pin]
     Pins --> PhotoDetail[사진 상세]
@@ -202,7 +202,7 @@ flowchart LR
 | Q4  | 큐 도구 (BullMQ vs setImmediate vs cron)          | BullMQ 잠정 (학습 + 표준 패턴)                                                                                                                                            | 4.4             |
 | Q5  | EXIF 라이브러리 (exifr vs piexifjs vs sharp 내장) | exifr 잠정 (가벼움)                                                                                                                                                       | 4.5             |
 | Q6  | 지도 라이브러리 (react-native-maps vs MapLibre)   | react-native-maps 잠정 (Expo 친화) / MapLibre (오픈)                                                                                                                      | 4.7 (ADR 후보)  |
-| Q7  | 사진 카탈로그 UI (Trip-first vs Photo-first)      | Trip-first 잠정 (사용자 멘탈 모델)                                                                                                                                        | 4.6             |
+| Q7  | 사진 카탈로그 UI (Moment-first vs Photo-first)    | Moment-first 잠정 (사용자 멘탈 모델 — 순간 단위 그루핑)                                                                                                                   | 4.6             |
 | Q8  | 상태관리 (Zustand vs Redux Toolkit + RQ)          | Zustand 잠정 (사이드 규모, 단순)                                                                                                                                          | 4.6             |
 | Q9  | 사진 form (react-hook-form 도입?)                 | 도입 잠정 (모바일 form 표준)                                                                                                                                              | 4.6             |
 | Q10 | 사용자 위치 권한 UX                               | 첫 진입 X, 지도 탭 클릭 시 요청                                                                                                                                           | 4.7             |
@@ -224,13 +224,14 @@ flowchart LR
 
 ## 11. 변경 이력
 
-| 날짜       | 변경 내용                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-05-28 | 최초 작성. 옵션 C (B + 지도) 범위 확정. 6주 호흡, sub-phase 7개로 분할. Open Questions 11건 — 각 sub-phase 직전에 결정 + ADR 후보 3건 (Q3 R2, Q6 지도, Q11 DB 호스팅).                                                                                                                                                                                                                                                                                                                      |
-| 2026-05-28 | Q1 ORM 확정 (TypeORM, [ADR-0006](../decisions/0006-orm-typeorm.md)). 실무 환경 친숙도를 사이드에서 "제대로 학습"으로 정복 + 본진(이미지/미디어/지도) 시간 보호 + NestJS 정석. Prisma는 사이드 후속 또는 별도 프로젝트로 미룸. 4.1 인증 진행 시작.                                                                                                                                                                                                                                           |
-| 2026-05-29 | Q2 JWT 저장+전송 방식 확정 — expo-secure-store + Bearer header. 참조 인증 패턴(실무 웹, CSRF token, 2FA 4종, 다층 캐싱, service 11개+guard 9개) 본격 분석 후 모바일 컨텍스트엔 단순한 Bearer가 적합 결정. 참조 패턴 중 Phase 후속 채택 가치 있는 항목들(PasswordService 분리, last_login_at, Stateful logout, Redis blacklist, Token rotation, 다층 캐싱, OAuth, 2FA 등)은 메모리 `auth-deep-dive-revisit`에 박제 — Phase 3/4/5 시점에 자동 인지.                                            |
-| 2026-05-30 | 4.1 인증 코드 본격 완성 — Commit 1~6 (의존성 + UsersService + AuthService + Controller/DTO + JwtStrategy/Guard + Swagger). 참조 패턴 채택(401 throw 안전망, Swagger). 학습 노트 `jwt-auth-and-refresh-rotation.md` 작성 — JWT vs Session, Bearer vs Cookie, Stateless/Blacklist/Rotation 3 패턴, bcrypt 깊이, 참조 코드 비교, 함정 8종, Phase 후속 정복 항목 13 섹션. 4.1 인증 학습 노트 항목 ✅.                                                                                                |
-| 2026-05-30 | 4.1 인증 **완료** — Commit 8 (모바일 인증 client). 참조 프론트 `RestAPIInstance` 실측 후 채택/거부 결정: 채택 5건(refreshPromise 단일화, `_retried` flag, isRefreshEndpoint, `x-client-platform`, ApiError class) / 거부 4건(class 2단계 wrapper, setAPIErrorCallback 전역, APIError.method, Cookie+CSRF). 의도적 다양화 — 참조 axios → 사이드 fetch wrapper로 interceptor 직접 정복. 검증은 Phase 2 4.6 모바일 첫 화면 진입 시 자연 검증. 다음 단계: Phase 2 4.2 DB 스키마 + 마이그레이션. |
-| 2026-05-30 | 4.1 정정 commit — DTO 명명 정정(Request/Response 명시, `Dto` Pascal suffix), RestResponse class 도입(code 9개 + method 4개 enum), AuthService throw → RestResponse.error() 반환 패턴, AuthController endpoint sign-up/sign-in/sign-out, 모바일 client RestResponse 자동 unwrap + method 자동 액션(LOG_OUT → clear+callback). 백엔드 Jest 셋업 + 4.1 인증 단위 테스트 29 케이스(UsersService 5/AuthService 10/RestResponse 12/JwtStrategy 2). CI에 Test 단계 추가.                           |
-| 2026-05-30 | **방식 전환 — 4.2 Feature-first incremental schema**. 본인 entity 설계 방식(feature 작업 시작 시 초안 → 기능 개발하면서 점진 추가) 박제(메모리 `feedback-feature-first-schema`). Phase 2 4.2 항목 재정의 — entity 미리 설계 X, 인프라(PostGIS 확장 enable + 자동 migration CI + 학습 노트)만. Trip entity → 4.3 진입 시점, Photo 초안 → 4.3 / 보강 → 4.4 / 4.5 점진. 4.2 기간 3일 → 2일 단축.                                                                                               |
-| 2026-05-30 | 4.2 인프라 **완료** — Node 20 → 22 LTS 업그레이드(보안 패치 + TypeORM yargs ESM 호환), PostGIS 확장 enable 마이그레이션(`CREATE EXTENSION IF NOT EXISTS postgis`) + Fly `release_command`로 자동 migration 박제, 학습 노트 2건(`postgis-basics.md` + `indexes-strategy.md`). 마이그레이션 검수 룰 메모리 박제(`feedback-migration-confirmation` — 본인 OK 후 실행). 다음: 4.3 사진 업로드 인프라 진입 (Trip entity 초안 + R2 presigned URL + Photo entity 초안 + 모바일 client 통합).       |
+| 날짜       | 변경 내용                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-05-28 | 최초 작성. 옵션 C (B + 지도) 범위 확정. 6주 호흡, sub-phase 7개로 분할. Open Questions 11건 — 각 sub-phase 직전에 결정 + ADR 후보 3건 (Q3 R2, Q6 지도, Q11 DB 호스팅).                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| 2026-05-28 | Q1 ORM 확정 (TypeORM, [ADR-0006](../decisions/0006-orm-typeorm.md)). 실무 환경 친숙도를 사이드에서 "제대로 학습"으로 정복 + 본진(이미지/미디어/지도) 시간 보호 + NestJS 정석. Prisma는 사이드 후속 또는 별도 프로젝트로 미룸. 4.1 인증 진행 시작.                                                                                                                                                                                                                                                                                                                                           |
+| 2026-05-29 | Q2 JWT 저장+전송 방식 확정 — expo-secure-store + Bearer header. 참조 인증 패턴(실무 웹, CSRF token, 2FA 4종, 다층 캐싱, service 11개+guard 9개) 본격 분석 후 모바일 컨텍스트엔 단순한 Bearer가 적합 결정. 참조 패턴 중 Phase 후속 채택 가치 있는 항목들(PasswordService 분리, last_login_at, Stateful logout, Redis blacklist, Token rotation, 다층 캐싱, OAuth, 2FA 등)은 메모리 `auth-deep-dive-revisit`에 박제 — Phase 3/4/5 시점에 자동 인지.                                                                                                                                            |
+| 2026-05-30 | 4.1 인증 코드 본격 완성 — Commit 1~6 (의존성 + UsersService + AuthService + Controller/DTO + JwtStrategy/Guard + Swagger). 참조 패턴 채택(401 throw 안전망, Swagger). 학습 노트 `jwt-auth-and-refresh-rotation.md` 작성 — JWT vs Session, Bearer vs Cookie, Stateless/Blacklist/Rotation 3 패턴, bcrypt 깊이, 참조 코드 비교, 함정 8종, Phase 후속 정복 항목 13 섹션. 4.1 인증 학습 노트 항목 ✅.                                                                                                                                                                                                |
+| 2026-05-30 | 4.1 인증 **완료** — Commit 8 (모바일 인증 client). 참조 프론트 `RestAPIInstance` 실측 후 채택/거부 결정: 채택 5건(refreshPromise 단일화, `_retried` flag, isRefreshEndpoint, `x-client-platform`, ApiError class) / 거부 4건(class 2단계 wrapper, setAPIErrorCallback 전역, APIError.method, Cookie+CSRF). 의도적 다양화 — 참조 axios → 사이드 fetch wrapper로 interceptor 직접 정복. 검증은 Phase 2 4.6 모바일 첫 화면 진입 시 자연 검증. 다음 단계: Phase 2 4.2 DB 스키마 + 마이그레이션.                                                                                                 |
+| 2026-05-30 | 4.1 정정 commit — DTO 명명 정정(Request/Response 명시, `Dto` Pascal suffix), RestResponse class 도입(code 9개 + method 4개 enum), AuthService throw → RestResponse.error() 반환 패턴, AuthController endpoint sign-up/sign-in/sign-out, 모바일 client RestResponse 자동 unwrap + method 자동 액션(LOG_OUT → clear+callback). 백엔드 Jest 셋업 + 4.1 인증 단위 테스트 29 케이스(UsersService 5/AuthService 10/RestResponse 12/JwtStrategy 2). CI에 Test 단계 추가.                                                                                                                           |
+| 2026-05-30 | **방식 전환 — 4.2 Feature-first incremental schema**. 본인 entity 설계 방식(feature 작업 시작 시 초안 → 기능 개발하면서 점진 추가) 박제(메모리 `feedback-feature-first-schema`). Phase 2 4.2 항목 재정의 — entity 미리 설계 X, 인프라(PostGIS 확장 enable + 자동 migration CI + 학습 노트)만. Trip entity → 4.3 진입 시점, Photo 초안 → 4.3 / 보강 → 4.4 / 4.5 점진. 4.2 기간 3일 → 2일 단축.                                                                                                                                                                                               |
+| 2026-05-30 | 4.2 인프라 **완료** — Node 20 → 22 LTS 업그레이드(보안 패치 + TypeORM yargs ESM 호환), PostGIS 확장 enable 마이그레이션(`CREATE EXTENSION IF NOT EXISTS postgis`) + Fly `release_command`로 자동 migration 박제, 학습 노트 2건(`postgis-basics.md` + `indexes-strategy.md`). 마이그레이션 검수 룰 메모리 박제(`feedback-migration-confirmation` — 본인 OK 후 실행). 다음: 4.3 사진 업로드 인프라 진입 (Trip entity 초안 + R2 presigned URL + Photo entity 초안 + 모바일 client 통합).                                                                                                       |
+| 2026-05-31 | **도메인 광의 재정의 + Moment 명명 확정**. 처음 "여행 사진 아카이브"로 그렸으나 본인 의도가 "여행 + 일상 모든 순간(카페/산책/단발 외출 포함) 아카이브"임 확인. 기록 단위를 `Trip` → `Moment`로 변경. Trailog 어휘(Trail + Log)는 광의에도 충분 — "a trail of moments". PROJECT_ROOT 도메인 정의 + 결정 1 + 사용자 스토리 + 4.3 항목 + Mermaid 흐름 정정. 4.3 D1 코드(entity/dto/service/controller/module/spec/migration) 모두 Moment 명명으로 작성. Controller/Service 메서드명 룰(동사 + 도메인 명사 명시) 추가 박제 — UsersService + AuthService + AuthController 일관 정정 별도 commit. |

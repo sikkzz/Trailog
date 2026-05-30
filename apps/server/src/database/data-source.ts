@@ -9,6 +9,7 @@
 
 import 'dotenv/config'; // CLI용. NestJS 부팅 경로에선 ConfigModule이 이미 로드함.
 import { DataSource, type DataSourceOptions } from 'typeorm';
+import { Moment } from '../moments/moment.entity';
 import { User } from '../users/user.entity';
 
 // 환경변수 검증 — 누락 시 명확한 에러로 빠른 실패.
@@ -29,7 +30,7 @@ export const dataSourceOptions: DataSourceOptions = {
 
   // entity 등록: 명시적 배열 사용 (glob은 TS 컴파일 후 경로 이슈 잦음).
   // 새 entity 추가 시 여기에 한 줄 더 박을 것.
-  entities: [User],
+  entities: [User, Moment],
 
   // 마이그레이션 디렉토리: 컴파일 후엔 dist/database/migrations 가 됨.
   // TypeORM CLI는 ts-node로 실행되므로 src 기준 glob 사용 가능.
