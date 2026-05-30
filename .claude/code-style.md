@@ -20,6 +20,11 @@
 
 - **동사로 시작** — `get`, `create`, `find`, `update`, `delete`, `validate`, `parse`, `format`, `compute`, `build`, `transform`
 - **도메인 동사 우선** — 의미 있는 도메인 동사가 있으면 그대로 (`signUp`, `refresh`, `rotateToken`)
+- **Controller / Service 메서드는 동사 + 도메인 명사 명시** (필수, NestJS 백엔드 룰)
+  - ❌ `create`, `update`, `findAll`, `findOne`, `remove`, `findByEmail`
+  - ✅ `createMoment`, `updateMoment`, `findMomentsByUserId`, `findUserByEmail`, `getMyInfo`
+  - 사유: 스택 트레이스 / 로그 / IDE find usages에서 도메인 추적 가능. 자세히는 `nest-backend.md` 참고
+  - 예외: 인증 동사 (`signUp` / `signIn` 등) — 동사 자체가 도메인 명확하면 생략 OK
 - **async 함수에 `Async` suffix X** — Promise 반환 타입으로 명확함 (`signIn(): Promise<TokenPair>`)
 - **private helper**: 동사 시작 + camelCase (`hashPassword`, `generateTokenPair`)
 

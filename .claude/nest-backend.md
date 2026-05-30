@@ -4,23 +4,23 @@ NestJS 프로덕션 모범 사례 + Trailog 컨텍스트 맞춤. ORM은 TypeORM 
 
 ## 네이밍 규칙
 
-| 대상                      | 규칙                                             | 예시                                                              |
-| ------------------------- | ------------------------------------------------ | ----------------------------------------------------------------- |
-| 모듈 파일                 | `{feature}.module.ts`                            | `auth.module.ts`, `users.module.ts`                               |
-| 서비스 파일               | `{feature}.service.ts` / `{specific}.service.ts` | `auth.service.ts`, `password.service.ts` (분리 시)                |
-| 컨트롤러 파일             | `{feature}.controller.ts`                        | `auth.controller.ts`                                              |
-| 엔티티 파일               | `{name}.entity.ts`                               | `user.entity.ts`, `trip.entity.ts`                                |
-| **DTO 파일**              | `{action}-{feature}.dto.ts`                      | `sign-in.dto.ts`, `change-password.dto.ts`                        |
-| **DTO 클래스 (Request)**  | `{Action}{Feature}RequestDto`                    | `SignInRequestDto`, `SignUpRequestDto`, `RefreshTokenRequestDto`  |
-| **DTO 클래스 (Response)** | `{Action}{Feature}ResponseDto`                   | `SignInResponseDto`, `RefreshTokenResponseDto`                    |
-| Guard 파일                | `{name}.guard.ts`                                | `jwt-auth.guard.ts`, `optional-jwt-auth.guard.ts`                 |
-| Strategy 파일             | `{name}.strategy.ts`                             | `jwt.strategy.ts`                                                 |
-| Decorator 파일            | `{name}.decorator.ts`                            | `current-user.decorator.ts`                                       |
-| 마이그레이션 파일         | `{timestamp}-{Slug}.ts`                          | `1779978806585-Init.ts` (TypeORM CLI가 생성)                      |
-| 디렉토리                  | kebab-case                                       | `apps/server/src/auth/`                                           |
-| 클래스명                  | PascalCase                                       | `AuthService`, `SignInRequestDto`                                 |
-| 메서드명                  | camelCase + 도메인 동사 시작                     | `signUp`, `signIn`, `refreshTokens`, `findByEmail`, `rotateToken` |
-| 상수                      | UPPER_SNAKE_CASE                                 | `BCRYPT_COST_FACTOR`, `JWT_EXPIRES_IN`                            |
+| 대상                      | 규칙                                             | 예시                                                                                      |
+| ------------------------- | ------------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| 모듈 파일                 | `{feature}.module.ts`                            | `auth.module.ts`, `users.module.ts`                                                       |
+| 서비스 파일               | `{feature}.service.ts` / `{specific}.service.ts` | `auth.service.ts`, `password.service.ts` (분리 시)                                        |
+| 컨트롤러 파일             | `{feature}.controller.ts`                        | `auth.controller.ts`                                                                      |
+| 엔티티 파일               | `{name}.entity.ts`                               | `user.entity.ts`, `trip.entity.ts`                                                        |
+| **DTO 파일**              | `{action}-{feature}.dto.ts`                      | `sign-in.dto.ts`, `change-password.dto.ts`                                                |
+| **DTO 클래스 (Request)**  | `{Action}{Feature}RequestDto`                    | `SignInRequestDto`, `SignUpRequestDto`, `RefreshTokenRequestDto`                          |
+| **DTO 클래스 (Response)** | `{Action}{Feature}ResponseDto`                   | `SignInResponseDto`, `RefreshTokenResponseDto`                                            |
+| Guard 파일                | `{name}.guard.ts`                                | `jwt-auth.guard.ts`, `optional-jwt-auth.guard.ts`                                         |
+| Strategy 파일             | `{name}.strategy.ts`                             | `jwt.strategy.ts`                                                                         |
+| Decorator 파일            | `{name}.decorator.ts`                            | `current-user.decorator.ts`                                                               |
+| 마이그레이션 파일         | `{timestamp}-{Slug}.ts`                          | `1779978806585-Init.ts` (TypeORM CLI가 생성)                                              |
+| 디렉토리                  | kebab-case                                       | `apps/server/src/auth/`                                                                   |
+| 클래스명                  | PascalCase                                       | `AuthService`, `SignInRequestDto`                                                         |
+| 메서드명                  | camelCase + 동사 + 도메인 명사 (필수)            | `signUp`, `signIn`, `createMoment`, `findMomentsByUserId`, `findUserByEmail`, `getMyInfo` |
+| 상수                      | UPPER_SNAKE_CASE                                 | `BCRYPT_COST_FACTOR`, `JWT_EXPIRES_IN`                                                    |
 
 ### DTO 명명 규칙 — 핵심
 
@@ -147,10 +147,40 @@ export class AuthController {
 
 → **로직 없음**. 로직이 들어가면 service로 옮김.
 
-### 메서드 명명 — 도메인 동사 그대로
+### 메서드 명명 — 동사 + 도메인 명사 (필수)
 
-- ✅ `signUp`, `signIn`, `signOut`, `refreshTokens`, `changePassword`, `resetPassword`, `withdrawalUser`
-- ❌ `create`, `update`, `findOne` (도메인 의미 손실 — Trips/Photos 같은 CRUD 도메인엔 OK, 인증 도메인엔 X)
+**모든 controller / service 메서드는 도메인을 메서드명에 포함**. 일반 CRUD 메서드도
+`create` / `findAll` 같은 generic은 금지 — 도메인 명사를 붙여 `createMoment` /
+`findMomentsByUserId` 형태로.
+
+✅ 좋은 예:
+
+- 인증 도메인 (동사 자체에 도메인 명확): `signUp`, `signIn`, `signOut`, `refreshTokens`,
+  `changePassword`, `resetPassword`, `withdrawalUser`
+- CRUD 도메인: `createMoment`, `findMomentsByUserId`, `updateMoment`, `deleteMoment`
+- 사용자 조회: `findUserByEmail`, `findUserById`, `createUser`, `getMyInfo`
+
+❌ 나쁜 예:
+
+- `create`, `update`, `findAll`, `findOne`, `remove`, `get`, `findByEmail`, `findById`
+- (도메인 모호 — 어느 service의 메서드인지 스택 트레이스/로그에서 추적 어려움)
+
+**사유**:
+
+- 스택 트레이스 / 로그에서 메서드명만으로 어느 도메인인지 즉시 추적 (디버깅 가속)
+- IDE "Find usages" 시 다른 도메인의 동명 메서드와 분리 (`grep "createMoment"` 깔끔)
+- Service 인스턴스 여러 개 주입 시 호출 의도 명확 (`momentsService.createMoment(...)`
+  vs `momentsService.create(...)` — 후자는 import만 보지 않으면 모호)
+
+**Controller vs Service**:
+
+- Service: 매개변수 명시 — `findMomentsByUserId(userId)`, `findUserByEmail(email)`
+- Controller: 현 사용자 컨텍스트 — `findMyMoments()`, `getMyInfo()` ("내 것" 의도 명확)
+
+**예외**:
+
+- 인증 동사 (`signUp` / `signIn` / `signOut` / `refreshTokens`) — 동사 자체가
+  도메인 명확. 명사 생략 OK (`signUpUser` 어색).
 
 ## 서비스 코드 순서
 
