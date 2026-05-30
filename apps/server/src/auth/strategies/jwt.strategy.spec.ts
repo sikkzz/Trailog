@@ -20,7 +20,7 @@ describe('JwtStrategy', () => {
 
   beforeEach(async () => {
     usersService = {
-      findById: jest.fn(),
+      findUserById: jest.fn(),
     } as never;
 
     const configService = {
@@ -41,16 +41,16 @@ describe('JwtStrategy', () => {
   describe('validate', () => {
     it('payload의 sub로 user를 찾으면 그 user를 반환한다', async () => {
       const mockUser = { id: 'uuid-1', email: 'user@trailog.app' } as User;
-      usersService.findById.mockResolvedValue(mockUser);
+      usersService.findUserById.mockResolvedValue(mockUser);
 
       const result = await strategy.validate({ sub: 'uuid-1', email: 'user@trailog.app' });
 
       expect(result).toEqual(mockUser);
-      expect(usersService.findById).toHaveBeenCalledWith('uuid-1');
+      expect(usersService.findUserById).toHaveBeenCalledWith('uuid-1');
     });
 
     it('user를 찾지 못하면 UnauthorizedException을 던진다 (계정 삭제 등)', async () => {
-      usersService.findById.mockResolvedValue(null);
+      usersService.findUserById.mockResolvedValue(null);
 
       await expect(strategy.validate({ sub: 'uuid-deleted' })).rejects.toThrow(
         UnauthorizedException,

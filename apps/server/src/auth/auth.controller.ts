@@ -82,7 +82,7 @@ export class AuthController {
     description: 'JWT access token으로 본인 정보 조회. token 유효성 확인용도.',
   })
   @ApiOkResponse({ description: '성공 — 사용자 id + email' })
-  getMe(@CurrentUser() user: User): RestResponse<{ id: string; email: string }> {
+  getMyInfo(@CurrentUser() user: User): RestResponse<{ id: string; email: string }> {
     return new RestResponse<{ id: string; email: string }>().success({
       id: user.id,
       email: user.email,

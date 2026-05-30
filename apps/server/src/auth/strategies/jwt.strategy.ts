@@ -38,7 +38,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
    * user 못 찾으면 401 (DB에서 삭제된 계정 등).
    */
   async validate(payload: JwtPayload): Promise<User> {
-    const user = await this.usersService.findById(payload.sub);
+    const user = await this.usersService.findUserById(payload.sub);
     if (!user) {
       throw new UnauthorizedException('계정을 찾을 수 없습니다');
     }

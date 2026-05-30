@@ -26,10 +26,10 @@ describe('AuthService', () => {
 
   beforeEach(async () => {
     usersService = {
-      findByEmail: jest.fn(),
-      findByEmailWithPassword: jest.fn(),
-      findById: jest.fn(),
-      create: jest.fn(),
+      findUserByEmail: jest.fn(),
+      findUserByEmailWithPassword: jest.fn(),
+      findUserById: jest.fn(),
+      createUser: jest.fn(),
     } as never;
 
     jwtService = {
@@ -56,8 +56,8 @@ describe('AuthService', () => {
 
   describe('signUp', () => {
     it('새 이메일로 가입하면 TokenPair를 담은 성공 응답을 반환한다', async () => {
-      usersService.findByEmail.mockResolvedValue(null);
-      usersService.create.mockResolvedValue({ id: 'uuid-1', email: 'new@trailog.app' } as User);
+      usersService.findUserByEmail.mockResolvedValue(null);
+      usersService.createUser.mockResolvedValue({ id: 'uuid-1', email: 'new@trailog.app' } as User);
 
       const result = await service.signUp({
         email: 'new@trailog.app',
@@ -74,19 +74,19 @@ describe('AuthService', () => {
     });
 
     it('비밀번호는 bcrypt로 hash되어 저장된다 (평문 저장 X)', async () => {
-      usersService.findByEmail.mockResolvedValue(null);
-      usersService.create.mockResolvedValue({ id: 'uuid-1', email: 'new@trailog.app' } as User);
+      usersService.findUserByEmail.mockResolvedValue(null);
+      usersService.createUser.mockResolvedValue({ id: 'uuid-1', email: 'new@trailog.app' } as User);
 
       await service.signUp({ email: 'new@trailog.app', password: 'password123' });
 
-      const callArg = usersService.create.mock.calls[0][0];
+      const callArg = usersService.createUser.mock.calls[0][0];
       expect(callArg.passwordHash).not.toBe('password123');
       const isMatch = await bcrypt.compare('password123', callArg.passwordHash);
       expect(isMatch).toBe(true);
     });
 
     it('이미 가입된 이메일이면 DUPLICATE_ERROR + 409 응답을 반환한다', async () => {
-      usersService.findByEmail.mockResolvedValue({ id: 'existing' } as User);
+      usersService.findUserByEmail.mockResolvedValue({ id: 'existing' } as User);
 
       const result = await service.signUp({
         email: 'existing@trailog.app',
@@ -97,14 +97,14 @@ describe('AuthService', () => {
       expect(result.code).toBe(RestResponseCode.DUPLICATE_ERROR);
       expect(result.status).toBe(HttpStatus.CONFLICT);
       expect(result.message).toBe('이미 가입된 이메일입니다');
-      expect(usersService.create).not.toHaveBeenCalled();
+      expect(usersService.createUser).not.toHaveBeenCalled();
     });
   });
 
   describe('signIn', () => {
     it('이메일 + 비밀번호가 일치하면 TokenPair를 담은 성공 응답을 반환한다', async () => {
       const passwordHash = await bcrypt.hash('password123', 10);
-      usersService.findByEmailWithPassword.mockResolvedValue({
+      usersService.findUserByEmailWithPassword.mockResolvedValue({
         id: 'uuid-1',
         email: 'user@trailog.app',
         password: passwordHash,
@@ -123,7 +123,7 @@ describe('AuthService', () => {
     });
 
     it('이메일이 없으면 UNAUTHORIZED + 401 응답을 반환한다 (이메일 존재 여부 노출 X)', async () => {
-      usersService.findByEmailWithPassword.mockResolvedValue(null);
+      usersService.findUserByEmailWithPassword.mockResolvedValue(null);
 
       const result = await service.signIn({
         email: 'missing@trailog.app',
@@ -138,7 +138,7 @@ describe('AuthService', () => {
 
     it('비밀번호가 일치하지 않으면 UNAUTHORIZED + 401 응답을 반환한다 (메시지는 이메일 없음과 동일)', async () => {
       const passwordHash = await bcrypt.hash('correct-password', 10);
-      usersService.findByEmailWithPassword.mockResolvedValue({
+      usersService.findUserByEmailWithPassword.mockResolvedValue({
         id: 'uuid-1',
         email: 'user@trailog.app',
         password: passwordHash,
@@ -158,7 +158,10 @@ describe('AuthService', () => {
   describe('refreshTokens', () => {
     it('유효한 refresh token으로 새 TokenPair를 발급한다', async () => {
       jwtService.verifyAsync.mockResolvedValue({ sub: 'uuid-1' });
-      usersService.findById.mockResolvedValue({ id: 'uuid-1', email: 'user@trailog.app' } as User);
+      usersService.findUserById.mockResolvedValue({
+        id: 'uuid-1',
+        email: 'user@trailog.app',
+      } as User);
 
       const result = await service.refreshTokens({ refreshToken: 'valid-token' });
 
@@ -183,7 +186,7 @@ describe('AuthService', () => {
 
     it('refresh token은 유효하지만 user가 삭제된 경우 NOT_FOUND + LOG_OUT method를 반환한다', async () => {
       jwtService.verifyAsync.mockResolvedValue({ sub: 'uuid-deleted' });
-      usersService.findById.mockResolvedValue(null);
+      usersService.findUserById.mockResolvedValue(null);
 
       const result = await service.refreshTokens({ refreshToken: 'valid-token' });
 

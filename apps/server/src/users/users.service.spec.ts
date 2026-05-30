@@ -39,12 +39,12 @@ describe('UsersService', () => {
     service = module.get<UsersService>(UsersService);
   });
 
-  describe('findByEmail', () => {
+  describe('findUserByEmail', () => {
     it('이메일로 user를 조회하면 user를 반환한다', async () => {
       const mockUser = { id: 'uuid-1', email: 'a@trailog.app' } as User;
       userRepo.findOne.mockResolvedValue(mockUser);
 
-      const result = await service.findByEmail('a@trailog.app');
+      const result = await service.findUserByEmail('a@trailog.app');
 
       expect(result).toEqual(mockUser);
       expect(userRepo.findOne).toHaveBeenCalledWith({ where: { email: 'a@trailog.app' } });
@@ -53,18 +53,18 @@ describe('UsersService', () => {
     it('이메일에 해당하는 user가 없으면 null을 반환한다', async () => {
       userRepo.findOne.mockResolvedValue(null);
 
-      const result = await service.findByEmail('missing@trailog.app');
+      const result = await service.findUserByEmail('missing@trailog.app');
 
       expect(result).toBeNull();
     });
   });
 
-  describe('findByEmailWithPassword', () => {
+  describe('findUserByEmailWithPassword', () => {
     it('password 컬럼을 명시적으로 select해서 조회한다', async () => {
       const mockUser = { id: 'uuid-1', email: 'a@trailog.app', password: 'hash' } as User;
       queryBuilder.getOne.mockResolvedValue(mockUser);
 
-      const result = await service.findByEmailWithPassword('a@trailog.app');
+      const result = await service.findUserByEmailWithPassword('a@trailog.app');
 
       expect(result).toEqual(mockUser);
       expect(queryBuilder.addSelect).toHaveBeenCalledWith('user.password');
@@ -74,26 +74,26 @@ describe('UsersService', () => {
     });
   });
 
-  describe('findById', () => {
+  describe('findUserById', () => {
     it('id로 user를 조회하면 user를 반환한다', async () => {
       const mockUser = { id: 'uuid-1', email: 'a@trailog.app' } as User;
       userRepo.findOne.mockResolvedValue(mockUser);
 
-      const result = await service.findById('uuid-1');
+      const result = await service.findUserById('uuid-1');
 
       expect(result).toEqual(mockUser);
       expect(userRepo.findOne).toHaveBeenCalledWith({ where: { id: 'uuid-1' } });
     });
   });
 
-  describe('create', () => {
+  describe('createUser', () => {
     it('email + passwordHash로 새 user를 저장한다', async () => {
       const entity = { email: 'new@trailog.app', password: 'hashed' } as User;
       const saved = { ...entity, id: 'uuid-new' } as User;
       userRepo.create.mockReturnValue(entity);
       userRepo.save.mockResolvedValue(saved);
 
-      const result = await service.create({
+      const result = await service.createUser({
         email: 'new@trailog.app',
         passwordHash: 'hashed',
       });

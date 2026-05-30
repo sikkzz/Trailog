@@ -48,7 +48,7 @@ export class AuthService {
 
   /** 회원가입 — 이메일 unique 제약 + bcrypt hash + token 발급 */
   async signUp(dto: SignUpRequestDto): Promise<RestResponse<SignUpResponseDto>> {
-    const existing = await this.usersService.findByEmail(dto.email);
+    const existing = await this.usersService.findUserByEmail(dto.email);
     if (existing) {
       return new RestResponse<SignUpResponseDto>().error('이미 가입된 이메일입니다', {
         code: RestResponseCode.DUPLICATE_ERROR,
@@ -57,7 +57,7 @@ export class AuthService {
     }
 
     const passwordHash = await bcrypt.hash(dto.password, BCRYPT_COST);
-    const user = await this.usersService.create({ email: dto.email, passwordHash });
+    const user = await this.usersService.createUser({ email: dto.email, passwordHash });
 
     const tokens = await this.issueTokens({ sub: user.id, email: user.email });
     return new RestResponse<SignUpResponseDto>().success(tokens, {
@@ -67,7 +67,7 @@ export class AuthService {
 
   /** 로그인 — email/password 검증 + token 발급 */
   async signIn(dto: SignInRequestDto): Promise<RestResponse<SignInResponseDto>> {
-    const user = await this.usersService.findByEmailWithPassword(dto.email);
+    const user = await this.usersService.findUserByEmailWithPassword(dto.email);
     if (!user) {
       // 이메일 존재 여부 노출 안 하려고 일반화된 메시지
       return new RestResponse<SignInResponseDto>().error(
@@ -115,7 +115,7 @@ export class AuthService {
     }
 
     // user 존재 검증 (계정 삭제됐을 가능성 방어)
-    const user = await this.usersService.findById(payload.sub);
+    const user = await this.usersService.findUserById(payload.sub);
     if (!user) {
       return new RestResponse<RefreshTokenResponseDto>().error('계정을 찾을 수 없습니다', {
         code: RestResponseCode.NOT_FOUND,
