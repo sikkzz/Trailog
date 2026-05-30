@@ -12,4 +12,11 @@
 export { authStorage } from './auth-storage';
 export { apiRequest, setOnUnauthorized } from './api-client';
 export { ApiError } from './auth-types';
-export type { ApiRequestOptions, HttpMethod, TokenPair } from './auth-types';
+export type {
+  ApiRequestOptions,
+  HttpMethod,
+  RestResponse,
+  RestResponseMethod,
+  RestResponseType,
+  TokenPair,
+} from './auth-types';

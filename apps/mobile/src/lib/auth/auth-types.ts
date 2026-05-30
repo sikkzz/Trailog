@@ -1,10 +1,10 @@
 // 인증 lib 전역 타입.
 //
-// 참조 프론트 비교 (참조 프론트):
+// 참조 프론트 비교:
 // - 회사: APIError(message, status, data, method) — `method` enum이 클라 후속 액션 결정
 //        (LOGIN_REQUIRED → getUserInfo refetch, TWO_FA_REQUIRED → check2FAToken refetch)
-// - Trailog: ApiError(message, status, body). `method` 필드는 Phase 후속 도입 (메모리
-//            `error-handling-revisit` — 백엔드 RestResponse + method enum 도입 시점).
+// - Trailog: ApiError(message, status, body, code, method) — 백엔드 RestResponse와 sync.
+//            method 자동 처리: LOG_OUT → secure storage clear + onUnauthorized 콜백.
 //
 // 참조처럼 class로 둔 사유:
 // - interface 대신 class → instanceof 체크 가능 (참조 AuthGuard에서 `error instanceof APIError`)
@@ -15,16 +15,40 @@ export interface TokenPair {
   refreshToken: string;
 }
 
-/** 백엔드 에러 응답을 JS Error에 매핑. status + body 동시 박제. */
+// 백엔드 RestResponse (apps/server/src/common/rest-response.ts)와 sync.
+// 모든 백엔드 응답은 이 wrapper 구조.
+export type RestResponseType = 'SUCCESS' | 'ERROR';
+export type RestResponseMethod = 'NONE' | 'LOG_OUT' | 'LOGIN_REQUIRED' | 'BLOCKED';
+
+export interface RestResponse<T> {
+  type: RestResponseType;
+  code: string;
+  data: T | null;
+  message: string | null;
+  status: number;
+  method: RestResponseMethod;
+}
+
+/** 백엔드 에러 응답을 JS Error에 매핑. status/body/code/method 동시 박제. */
 export class ApiError extends Error {
   readonly status: number;
   readonly body: unknown;
+  readonly code: string;
+  readonly method: RestResponseMethod;
 
-  constructor(message: string, status: number, body: unknown) {
+  constructor(
+    message: string,
+    status: number,
+    body: unknown,
+    code: string,
+    method: RestResponseMethod,
+  ) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
     this.body = body;
+    this.code = code;
+    this.method = method;
   }
 }
 
@@ -35,7 +59,7 @@ export interface ApiRequestOptions {
   body?: unknown;
   headers?: Record<string, string>;
   /**
-   * 인증 헤더 자동 첨부 여부. signup/login/refresh 같은 public route는 false.
+   * 인증 헤더 자동 첨부 여부. sign-up/sign-in/refresh 같은 public route는 false.
    * 기본 true (대부분 endpoint가 protected).
    */
   authenticated?: boolean;

@@ -21,7 +21,7 @@
 // 4. Class 2단계는 대규모(다중 API instance + legacy 호환) 사유. 사이드엔 over.
 //
 // =============================================================================
-// 2. 인증 layer (참조 패턴 채택 / 거부)
+// 2. 인증 layer (참조 패턴 채택)
 // =============================================================================
 //
 // ✅ 채택 (회사와 동일):
@@ -33,19 +33,24 @@
 //   자체는 자동 갱신 안 함 (자기 자신 호출 방지).
 // - **`x-client-platform: 'mobile'` header** (회사: 'web') — 백엔드가 향후 클라 종류
 //   구분 가능 (analytics / A/B / device-specific 응답 등).
-//
-// ❌ 거부 (회사와 다름 / 사이드는 단순화):
-// - **setAPIErrorCallback (모든 에러)** → Trailog는 `setOnUnauthorized` (401+refresh
-//   실패만). 모든 에러 콜백은 over-engineering. Phase 후속 (error-handling-revisit
-//   메모리)에 도입 시점 박제.
-// - **APIError.method 필드** → 백엔드에 method enum 없음. Phase 후속 도입.
-// - **Cookie + CSRF token** → 모바일은 Bearer header (Q2 결정). XSS/CSRF 위험 X.
+// - **method enum 자동 처리** (회사: response의 `method` 따라 LOGIN_REQUIRED 등 액션) —
+//   백엔드 RestResponse 도입 후 채택. LOG_OUT/LOGIN_REQUIRED 자동 처리.
 //
 // =============================================================================
-// 3. 자동 흐름 다이어그램
+// 3. 백엔드 RestResponse 구조 처리
 // =============================================================================
 //
-//   [요청] → access token 첨부 → 서버 → 200 OK
+// 모든 백엔드 응답은 `{ type, code, data, message, status, method }` 형태:
+// - executeRequest가 자동 unwrap → 호출자엔 `data` 만 반환
+// - type=ERROR → ApiError throw (code/method 동봉)
+// - method=LOG_OUT → secure storage clear + onUnauthorized 콜백
+// - method=LOGIN_REQUIRED → onUnauthorized 콜백 (storage clear는 X)
+//
+// =============================================================================
+// 4. 자동 흐름 다이어그램
+// =============================================================================
+//
+//   [요청] → access token 첨부 → 서버 → 200 OK (data unwrap)
 //   [요청] → access token 첨부 → 서버 → 401 (만료)
 //          → refreshTokens() 시도 (in-flight promise 단일화)
 //          → 새 token 저장 + _retried: true 박제 후 재호출
@@ -54,7 +59,13 @@
 //   [요청] → refresh도 실패 → token clear → onUnauthorized 콜백
 
 import { authStorage } from './auth-storage';
-import { ApiError, type ApiRequestOptions, type TokenPair } from './auth-types';
+import {
+  ApiError,
+  type ApiRequestOptions,
+  type RestResponse,
+  type RestResponseMethod,
+  type TokenPair,
+} from './auth-types';
 
 // EXPO_PUBLIC_* 환경변수는 build time inline됨 (Expo 표준, Next.js의 NEXT_PUBLIC_과 동일).
 // 로컬 dev fallback: localhost.
@@ -67,7 +78,8 @@ const REFRESH_PATH = '/auth/refresh';
 // 참조 `RestAPIInstance.refreshInflight`와 동일 사고.
 let refreshPromise: Promise<TokenPair | null> | null = null;
 
-// 401 + refresh 모두 실패 시 호출. 상위 layer(Expo Router root)에서 박제.
+// 401 + refresh 모두 실패 시 또는 method=LOG_OUT/LOGIN_REQUIRED 시 호출.
+// 상위 layer(Expo Router root)에서 박제.
 let onUnauthorized: (() => void) | null = null;
 
 export function setOnUnauthorized(callback: () => void): void {
@@ -80,6 +92,18 @@ export function setOnUnauthorized(callback: () => void): void {
  */
 function isRefreshEndpoint(path: string): boolean {
   return path === REFRESH_PATH;
+}
+
+/** RestResponse 구조 타입 가드 — 백엔드 표준 응답인지 확인. */
+function isRestResponse<T>(body: unknown): body is RestResponse<T> {
+  return (
+    typeof body === 'object' &&
+    body !== null &&
+    'type' in body &&
+    'code' in body &&
+    'data' in body &&
+    'method' in body
+  );
 }
 
 /**
@@ -113,14 +137,15 @@ async function refreshTokens(): Promise<TokenPair | null> {
         body: JSON.stringify({ refreshToken }),
       });
 
-      if (!response.ok) {
+      const body = (await response.json()) as RestResponse<TokenPair>;
+      if (body.type === 'ERROR' || !body.data) {
         // refresh도 만료/유효하지 않음 → 강제 로그아웃
         await authStorage.clear();
         onUnauthorized?.();
         return null;
       }
 
-      const tokens = (await response.json()) as TokenPair;
+      const tokens = body.data;
       await authStorage.setTokens(tokens);
       return tokens;
     } catch {
@@ -134,17 +159,9 @@ async function refreshTokens(): Promise<TokenPair | null> {
   return refreshPromise;
 }
 
-function createApiError(status: number, body: unknown): ApiError {
-  const message =
-    typeof body === 'object' && body !== null && 'message' in body
-      ? String((body as { message: unknown }).message)
-      : `HTTP ${status}`;
-  return new ApiError(message, status, body);
-}
-
 /**
- * 실제 fetch 호출 + 에러 처리. apiRequest의 retry 흐름에서 두 번 호출 가능
- * (첫 시도 + refresh 후 재시도).
+ * 실제 fetch 호출 + RestResponse unwrap + 에러 변환.
+ * apiRequest의 retry 흐름에서 두 번 호출 가능 (첫 시도 + refresh 후 재시도).
  */
 async function executeRequest<T>(
   path: string,
@@ -166,17 +183,49 @@ async function executeRequest<T>(
     body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
   });
 
-  // 204 No Content (logout 등): 본문 없으므로 undefined 반환
+  // 204 No Content (sign-out 등): 본문 없으므로 undefined 반환
   if (response.status === 204) return undefined as T;
 
   const text = await response.text();
-  const body = text ? (JSON.parse(text) as unknown) : null;
+  const rawBody = text ? (JSON.parse(text) as unknown) : null;
 
-  if (!response.ok) {
-    throw createApiError(response.status, body);
+  // RestResponse 구조 — 백엔드 표준 응답
+  if (isRestResponse<T>(rawBody)) {
+    if (rawBody.type === 'ERROR') {
+      throw new ApiError(
+        rawBody.message ?? `HTTP ${response.status}`,
+        rawBody.status || response.status,
+        rawBody,
+        rawBody.code,
+        rawBody.method,
+      );
+    }
+    return rawBody.data as T;
   }
 
-  return body as T;
+  // 비표준 응답 (외부 API 또는 NestJS validation 자동 throw 등) — 그대로 처리
+  if (!response.ok) {
+    const message =
+      typeof rawBody === 'object' && rawBody !== null && 'message' in rawBody
+        ? String((rawBody as { message: unknown }).message)
+        : `HTTP ${response.status}`;
+    throw new ApiError(message, response.status, rawBody, '009', 'NONE');
+  }
+
+  return rawBody as T;
+}
+
+/** method enum에 따라 자동 액션 — LOG_OUT/LOGIN_REQUIRED 시 상위 콜백 호출. */
+async function handleErrorMethod(method: RestResponseMethod): Promise<void> {
+  if (method === 'LOG_OUT') {
+    await authStorage.clear();
+    onUnauthorized?.();
+    return;
+  }
+
+  if (method === 'LOGIN_REQUIRED') {
+    onUnauthorized?.();
+  }
 }
 
 /**
@@ -184,7 +233,7 @@ async function executeRequest<T>(
  *
  * 사용 예:
  *   const me = await apiRequest<{ id: string; email: string }>('/auth/me');
- *   const tokens = await apiRequest<TokenPair>('/auth/login', {
+ *   const tokens = await apiRequest<TokenPair>('/auth/sign-in', {
  *     method: 'POST',
  *     body: { email, password },
  *     authenticated: false,
@@ -226,6 +275,8 @@ export async function apiRequest<T = unknown>(
       }
     }
 
+    // refresh 시도 안 했거나 실패한 경우 — method enum 자동 처리 후 throw
+    await handleErrorMethod(error.method);
     throw error;
   }
 }

@@ -41,10 +41,10 @@
 ### 4.1 인증 (1주) — ✅ 완료 (2026-05-30)
 
 - [x] DB User 엔티티 (TypeORM, [ADR-0006](../decisions/0006-orm-typeorm.md))
-- [x] `POST /auth/signup` — 이메일/비밀번호 회원가입, bcrypt hash (cost factor 10)
-- [x] `POST /auth/login` — access token(15분) + refresh token(7일) 발급
+- [x] `POST /auth/sign-up` — 이메일/비밀번호 회원가입, bcrypt hash (cost factor 10)
+- [x] `POST /auth/sign-in` — access token(15분) + refresh token(7일) 발급
 - [x] `POST /auth/refresh` — refresh로 새 token pair 재발급
-- [x] `POST /auth/logout` — Stateless (no-op). Phase 4에 Redis blacklist 전환 검토 (메모리 `auth-deep-dive-revisit`)
+- [x] `POST /auth/sign-out` — Stateless (no-op). Phase 4에 Redis blacklist 전환 검토 (메모리 `auth-deep-dive-revisit`)
 - [x] 모바일 secure storage (expo-secure-store) — iOS Keychain + Android Keystore
 - [x] HTTP interceptor 자동 갱신 (fetch wrapper + refreshPromise 단일화 + \_retried flag — 참조 RestAPIInstance 패턴 채택)
 - [x] 인증 학습 노트 작성 ([jwt-auth-and-refresh-rotation.md](../learnings/jwt-auth-and-refresh-rotation.md) — JWT vs Session, Bearer vs Cookie, Refresh 회전 3 패턴, bcrypt 깊이, 참조 코드 비교, Swagger 통합, 함정 8종)
