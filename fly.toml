@@ -12,14 +12,19 @@ primary_region = 'nrt' # 도쿄 — 한국에서 가장 가까운 Fly 리전
 # 빌드 컨텍스트는 fly.toml 위치 (= 모노레포 루트) → workspace 파일 모두 접근 가능.
 dockerfile = 'apps/server/Dockerfile'
 
-# 컨테이너 부팅 직전, 단일 인스턴스에서 마이그레이션 자동 실행.
-# Fly 공식 권장 패턴 — 멀티 인스턴스 race condition 방지 (Fly가 단일 실행 보장).
-# 마이그레이션 실패 시 deploy 중단 → 잘못된 스키마로 컨테이너 부팅 차단.
-# 학습 포인트:
-# - pnpm --filter ... migration:run → ts-node 기반. 컨테이너에 dev deps 있어야 동작.
-# - 운영 stage 격리 (dist/ 컴파일 기반) 원하면 별도 cli-migrate.ts 진입점 도입 (Phase 후속).
-[deploy]
-  release_command = "pnpm --filter @trailog/server migration:run"
+# [deploy] release_command는 Phase 2 4.3+ 운영 DB(Q11) 결정 + DATABASE_URL Fly secret
+# 박제 시점에 재활성화 예정. 현재 비활성화 사유:
+# 1. 운영 DB 미생성 — 마이그레이션 실행해도 connection refused
+# 2. 256MB VM에서 pnpm + ts-node + TypeORM CLI = OOM (~500MB 필요. exit code 137)
+#
+# 재활성화 시 함께 검토 (메모리 `error-handling-revisit` 또는 별도):
+# - dist/ 컴파일 기반 (cli-migrate.js 진입점) — ts-node 제거로 메모리 절감
+# - 또는 VM memory 512mb+ (비용 증가) — Phase 4 ECS 마이그레이션 시 자연 해결
+# - 또는 GitHub Actions runner에서 직접 migration:run (운영 DB 접근 가능 시점)
+#
+# Fly 권장 패턴 원본:
+# [deploy]
+#   release_command = "pnpm --filter @trailog/server migration:run"
 
 [env]
 # 환경변수 (시크릿이 아닌 일반 값만 — 비밀값은 `fly secrets` 사용)
