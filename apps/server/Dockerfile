@@ -7,7 +7,7 @@
 # 빌드 컨텍스트는 모노레포 루트:
 #   docker build -f apps/server/Dockerfile -t trailog-server .
 
-FROM node:20.14.0-alpine
+FROM node:22.18.0-alpine
 
 # corepack으로 pnpm 9.9.0 활성 (packageManager 필드와 동일)
 RUN corepack enable && corepack prepare pnpm@9.9.0 --activate

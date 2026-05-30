@@ -53,18 +53,31 @@
 
 검증: Swagger UI(/api/docs)로 백엔드 8 단계 흐름 검증 완료. 모바일 인증 client는 Phase 2 4.6 모바일 첫 화면 진입 시 자연 검증 (dev build 재빌드는 expo-image-picker 등 native module 추가 시점에 한 번에).
 
-### 4.2 DB 스키마 + 마이그레이션 (3일)
+### 4.2 DB 인프라 준비 (PostGIS + 자동 migration + 학습) (2일)
 
-- [ ] ORM 선택 (Q1) + 도입
-- [ ] 엔티티: `User`, `Trip`, `Photo`
-- [ ] PostGIS `geometry(Point, 4326)` for `Photo.location`
-- [ ] 인덱스: `User.email` unique, `Photo.takenAt`, `Photo.tripId`, GIST on `Photo.location`
-- [ ] 마이그레이션 도구 (Prisma Migrate 또는 TypeORM Migration)
-- [ ] GitHub Actions deploy 단계에 자동 migration 실행
-- [ ] DB 스키마 학습 노트 (정규화, PostGIS 기초, 인덱스 전략)
+> **방식 변경 (2026-05-30 메모리 `feedback-feature-first-schema` 박제)**:
+> Entity 미리 다 설계 X. Trip/Photo 등 도메인 entity는 **각 feature sub-phase 진입 시점**에 점진 작성.
+> 4.2엔 인프라 준비 (PostGIS 확장 enable + 자동 migration CI + 일반 학습)만.
+
+- [x] ORM 선택 (Q1) + 도입 — TypeORM ([ADR-0006](../decisions/0006-orm-typeorm.md))
+- [x] 마이그레이션 도구 — TypeORM Migration (4.1에서 셋업 완료)
+- [ ] PostGIS 확장 enable 마이그레이션 (`CREATE EXTENSION postgis;`)
+- [ ] GitHub Actions deploy 단계에 자동 migration 실행 (Fly.io deploy 직전)
+- [ ] 학습 노트: `postgis-basics.md` (공간 자료형, ST\_\* 함수, GIST 인덱스, SRID 4326, lat/lng 컬럼 vs Point 트레이드오프)
+- [ ] 학습 노트: `indexes-strategy.md` (B-tree vs GIST vs GIN, unique 제약, partial index, 인덱스 비용 균형)
+
+**4.2에서 entity 작성 X**:
+
+- Trip entity → 4.3 진입 시 (사진 업로드 흐름에 Trip 만들기 포함)
+- Photo entity → 4.3 진입 시 (최소 컬럼 — id, tripId, userId, originalUrl 등)
+- Photo.thumbnailUrls / processingStatus → 4.4 sharp 작업 진입 시 추가
+- Photo.takenAt / location (PostGIS Point) / exifJson → 4.5 EXIF 진입 시 추가
+- User 보강 (displayName, lastLoginAt 등) → 4.6 모바일 화면 디자인 시점에 필요분만
 
 ### 4.3 사진 업로드 인프라 (R2 presigned URL) (1주)
 
+- [ ] **Trip entity 초안** + 마이그레이션 (id, userId FK, title, startedAt, endedAt — 만들기 기능에 필요한 최소 컬럼)
+- [ ] **Photo entity 초안** + 마이그레이션 (id, tripId FK, userId FK denorm, originalUrl, createdAt/updatedAt — 업로드 흐름에 필요한 최소 컬럼)
 - [ ] Cloudflare R2 버킷 생성 + IAM 토큰
 - [ ] `POST /photos/upload-url` → presigned PUT URL 발급 (5분 만료)
 - [ ] 클라이언트가 R2에 **직접 업로드** (서버 안 거침, 트래픽 비용 절감)
@@ -75,17 +88,18 @@
 
 ### 4.4 sharp 이미지 처리 + BullMQ (5일)
 
+- [ ] **Photo entity 보강 마이그레이션**: `thumbnailUrls jsonb`, `processingStatus enum('pending'|'processing'|'done'|'failed') default 'pending'`
 - [ ] BullMQ 워커 (`apps/server/src/jobs/photo-processing.processor.ts`)
 - [ ] Trigger: Photo 생성 시 → 큐에 작업 추가
 - [ ] sharp로 썸네일 3 size (`s: 320px`, `m: 800px`, `l: 1600px`) + WebP 변환
 - [ ] R2에 별도 prefix (`user/{userId}/thumbs/{photoId}_{size}.webp`)
-- [ ] Photo 엔티티에 `thumbnailUrls` JSON 박제 + 처리 상태(`pending/processing/done/failed`)
 - [ ] 실패 시 retry (BullMQ 3회 + exponential backoff)
 - [ ] sharp 학습 노트 (이미지 변환 옵션, WebP vs AVIF, 메모리 관리)
 - [ ] BullMQ 학습 노트 (Redis 기반 큐 패턴, worker concurrency, monitoring)
 
 ### 4.5 EXIF 추출 (3일)
 
+- [ ] **Photo entity 보강 마이그레이션**: `takenAt timestamptz NULL`, `location geometry(Point, 4326) NULL`, `exifJson jsonb NULL` + GIST 인덱스 on `location` + B-tree on `takenAt`
 - [ ] EXIF 라이브러리 선택 (Q5) + 도입
 - [ ] BullMQ 워커에 EXIF 추출 단계 추가
 - [ ] `Photo.takenAt` ← EXIF DateTimeOriginal
@@ -214,3 +228,5 @@ flowchart LR
 | 2026-05-29 | Q2 JWT 저장+전송 방식 확정 — expo-secure-store + Bearer header. 참조 인증 패턴(실무 웹, CSRF token, 2FA 4종, 다층 캐싱, service 11개+guard 9개) 본격 분석 후 모바일 컨텍스트엔 단순한 Bearer가 적합 결정. 참조 패턴 중 Phase 후속 채택 가치 있는 항목들(PasswordService 분리, last_login_at, Stateful logout, Redis blacklist, Token rotation, 다층 캐싱, OAuth, 2FA 등)은 메모리 `auth-deep-dive-revisit`에 박제 — Phase 3/4/5 시점에 자동 인지.                                            |
 | 2026-05-30 | 4.1 인증 코드 본격 완성 — Commit 1~6 (의존성 + UsersService + AuthService + Controller/DTO + JwtStrategy/Guard + Swagger). 참조 패턴 채택(401 throw 안전망, Swagger). 학습 노트 `jwt-auth-and-refresh-rotation.md` 작성 — JWT vs Session, Bearer vs Cookie, Stateless/Blacklist/Rotation 3 패턴, bcrypt 깊이, 참조 코드 비교, 함정 8종, Phase 후속 정복 항목 13 섹션. 4.1 인증 학습 노트 항목 ✅.                                                                                                |
 | 2026-05-30 | 4.1 인증 **완료** — Commit 8 (모바일 인증 client). 참조 프론트 `RestAPIInstance` 실측 후 채택/거부 결정: 채택 5건(refreshPromise 단일화, `_retried` flag, isRefreshEndpoint, `x-client-platform`, ApiError class) / 거부 4건(class 2단계 wrapper, setAPIErrorCallback 전역, APIError.method, Cookie+CSRF). 의도적 다양화 — 참조 axios → 사이드 fetch wrapper로 interceptor 직접 정복. 검증은 Phase 2 4.6 모바일 첫 화면 진입 시 자연 검증. 다음 단계: Phase 2 4.2 DB 스키마 + 마이그레이션. |
+| 2026-05-30 | 4.1 정정 commit — DTO 명명 정정(Request/Response 명시, `Dto` Pascal suffix), RestResponse class 도입(code 9개 + method 4개 enum), AuthService throw → RestResponse.error() 반환 패턴, AuthController endpoint sign-up/sign-in/sign-out, 모바일 client RestResponse 자동 unwrap + method 자동 액션(LOG_OUT → clear+callback). 백엔드 Jest 셋업 + 4.1 인증 단위 테스트 29 케이스(UsersService 5/AuthService 10/RestResponse 12/JwtStrategy 2). CI에 Test 단계 추가.                           |
+| 2026-05-30 | **방식 전환 — 4.2 Feature-first incremental schema**. 본인 entity 설계 방식(feature 작업 시작 시 초안 → 기능 개발하면서 점진 추가) 박제(메모리 `feedback-feature-first-schema`). Phase 2 4.2 항목 재정의 — entity 미리 설계 X, 인프라(PostGIS 확장 enable + 자동 migration CI + 학습 노트)만. Trip entity → 4.3 진입 시점, Photo 초안 → 4.3 / 보강 → 4.4 / 4.5 점진. 4.2 기간 3일 → 2일 단축.                                                                                               |
