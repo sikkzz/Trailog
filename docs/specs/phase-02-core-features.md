@@ -53,7 +53,7 @@
 
 검증: Swagger UI(/api/docs)로 백엔드 8 단계 흐름 검증 완료. 모바일 인증 client는 Phase 2 4.6 모바일 첫 화면 진입 시 자연 검증 (dev build 재빌드는 expo-image-picker 등 native module 추가 시점에 한 번에).
 
-### 4.2 DB 인프라 준비 (PostGIS + 자동 migration + 학습) (2일)
+### 4.2 DB 인프라 준비 (PostGIS + 자동 migration + 학습) — ✅ 완료 (2026-05-30)
 
 > **방식 변경 (2026-05-30 메모리 `feedback-feature-first-schema` 박제)**:
 > Entity 미리 다 설계 X. Trip/Photo 등 도메인 entity는 **각 feature sub-phase 진입 시점**에 점진 작성.
@@ -61,10 +61,13 @@
 
 - [x] ORM 선택 (Q1) + 도입 — TypeORM ([ADR-0006](../decisions/0006-orm-typeorm.md))
 - [x] 마이그레이션 도구 — TypeORM Migration (4.1에서 셋업 완료)
-- [ ] PostGIS 확장 enable 마이그레이션 (`CREATE EXTENSION postgis;`)
-- [ ] GitHub Actions deploy 단계에 자동 migration 실행 (Fly.io deploy 직전)
-- [ ] 학습 노트: `postgis-basics.md` (공간 자료형, ST\_\* 함수, GIST 인덱스, SRID 4326, lat/lng 컬럼 vs Point 트레이드오프)
-- [ ] 학습 노트: `indexes-strategy.md` (B-tree vs GIST vs GIN, unique 제약, partial index, 인덱스 비용 균형)
+- [x] Node 20 → 22 LTS 업그레이드 (보안 패치 + TypeORM yargs ESM 호환 해결)
+- [x] PostGIS 확장 enable 마이그레이션 (`CREATE EXTENSION IF NOT EXISTS postgis;`) — 로컬 적용 완료
+- [x] GitHub Actions deploy 단계에 자동 migration 실행 (Fly `release_command` 패턴 — 컨테이너 부팅 직전 단일 인스턴스 실행)
+- [x] 학습 노트: [postgis-basics.md](../learnings/postgis-basics.md) (공간 자료형, ST\_\* 함수, GIST 인덱스, SRID 4326, 함정 7종)
+- [x] 학습 노트: [indexes-strategy.md](../learnings/indexes-strategy.md) (B-tree/GIST/GIN/BRIN, Trailog 인덱스 전략 표, 함정 10종)
+
+검증: 로컬 Postgres에서 마이그레이션 적용 + `migrations` 테이블 record 확인. 운영(Fly Postgres)은 Q11 결정 + 운영 DB 생성 시점에 자동 적용 (release_command).
 
 **4.2에서 entity 작성 X**:
 
@@ -230,3 +233,4 @@ flowchart LR
 | 2026-05-30 | 4.1 인증 **완료** — Commit 8 (모바일 인증 client). 참조 프론트 `RestAPIInstance` 실측 후 채택/거부 결정: 채택 5건(refreshPromise 단일화, `_retried` flag, isRefreshEndpoint, `x-client-platform`, ApiError class) / 거부 4건(class 2단계 wrapper, setAPIErrorCallback 전역, APIError.method, Cookie+CSRF). 의도적 다양화 — 참조 axios → 사이드 fetch wrapper로 interceptor 직접 정복. 검증은 Phase 2 4.6 모바일 첫 화면 진입 시 자연 검증. 다음 단계: Phase 2 4.2 DB 스키마 + 마이그레이션. |
 | 2026-05-30 | 4.1 정정 commit — DTO 명명 정정(Request/Response 명시, `Dto` Pascal suffix), RestResponse class 도입(code 9개 + method 4개 enum), AuthService throw → RestResponse.error() 반환 패턴, AuthController endpoint sign-up/sign-in/sign-out, 모바일 client RestResponse 자동 unwrap + method 자동 액션(LOG_OUT → clear+callback). 백엔드 Jest 셋업 + 4.1 인증 단위 테스트 29 케이스(UsersService 5/AuthService 10/RestResponse 12/JwtStrategy 2). CI에 Test 단계 추가.                           |
 | 2026-05-30 | **방식 전환 — 4.2 Feature-first incremental schema**. 본인 entity 설계 방식(feature 작업 시작 시 초안 → 기능 개발하면서 점진 추가) 박제(메모리 `feedback-feature-first-schema`). Phase 2 4.2 항목 재정의 — entity 미리 설계 X, 인프라(PostGIS 확장 enable + 자동 migration CI + 학습 노트)만. Trip entity → 4.3 진입 시점, Photo 초안 → 4.3 / 보강 → 4.4 / 4.5 점진. 4.2 기간 3일 → 2일 단축.                                                                                               |
+| 2026-05-30 | 4.2 인프라 **완료** — Node 20 → 22 LTS 업그레이드(보안 패치 + TypeORM yargs ESM 호환), PostGIS 확장 enable 마이그레이션(`CREATE EXTENSION IF NOT EXISTS postgis`) + Fly `release_command`로 자동 migration 박제, 학습 노트 2건(`postgis-basics.md` + `indexes-strategy.md`). 마이그레이션 검수 룰 메모리 박제(`feedback-migration-confirmation` — 본인 OK 후 실행). 다음: 4.3 사진 업로드 인프라 진입 (Trip entity 초안 + R2 presigned URL + Photo entity 초안 + 모바일 client 통합).       |
