@@ -23,7 +23,8 @@
     "db:redis": "docker compose -f docker/compose.yml exec redis redis-cli",
     "db:reset": "docker compose -f docker/compose.yml down -v",
     "sync:notion": "node scripts/sync-to-notion.mjs",
-    "sync:notion:dry": "node scripts/sync-to-notion.mjs --dry-run"
+    "sync:notion:dry": "node scripts/sync-to-notion.mjs --dry-run",
+    "verify:r2": "node --env-file=apps/server/.env scripts/verify-r2.mjs"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.0.1",
