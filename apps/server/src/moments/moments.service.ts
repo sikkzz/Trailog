@@ -56,6 +56,15 @@ export class MomentsService {
     });
   }
 
+  /**
+   * 본인 userId의 moment 1건 조회 (권한 검증용).
+   * 다른 도메인(Photos 등)에서 momentId 권한 확인 시 호출.
+   * 본인 것이 아니면 null → 호출자가 NOT_FOUND 또는 FORBIDDEN 응답.
+   */
+  async findMomentByIdAndUserId(id: string, userId: string): Promise<Moment | null> {
+    return this.momentRepo.findOne({ where: { id, userId } });
+  }
+
   /** Moment entity → CreateMomentResponseDto. Date → ISO string 변환. */
   private toResponseDto(moment: Moment): CreateMomentResponseDto {
     return {
