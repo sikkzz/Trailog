@@ -12,8 +12,10 @@
 // - confirm 시 받은 key가 본인 prefix인지 재검증 (모바일 조작 시도 차단)
 
 import { randomUUID } from 'node:crypto';
+import { InjectQueue } from '@nestjs/bullmq';
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { Queue } from 'bullmq';
 import { Repository } from 'typeorm';
 
 import { RestResponse, RestResponseCode } from '../common';
@@ -27,6 +29,8 @@ import {
 import { ConfirmPhotoRequestDto, ConfirmPhotoResponseDto } from './dtos/confirm-photo.dto';
 import { GetPhotosResponseDto, PhotoListItemDto } from './dtos/get-photos.dto';
 import { Photo } from './photo.entity';
+import type { PhotoProcessingJobData } from './photo-processing.types';
+import { PHOTO_PROCESSING_QUEUE } from './photos.constants';
 
 const EXT_TO_MIME: Record<string, string> = {
   jpg: 'image/jpeg',
@@ -43,6 +47,8 @@ export class PhotosService {
     private readonly photoRepo: Repository<Photo>,
     private readonly momentsService: MomentsService,
     private readonly r2Service: R2Service,
+    @InjectQueue(PHOTO_PROCESSING_QUEUE)
+    private readonly photoProcessingQueue: Queue<PhotoProcessingJobData>,
   ) {}
 
   /** Presigned PUT URL 발급 — Moment 권한 확인 + key 강제 생성. */
@@ -101,6 +107,19 @@ export class PhotosService {
       originalKey: dto.key,
     });
     const saved = await this.photoRepo.save(entity);
+
+    // photo-processing 큐에 적재 — sharp 썸네일 3 size + EXIF 추출 (4.5).
+    // 실패해도 retry 3회 자동 (BullMQ exponential backoff).
+    // photoId를 BullMQ job ID로 사용 — 중복 enqueue 방지 (idempotent).
+    await this.photoProcessingQueue.add(
+      'process',
+      { photoId: saved.id, userId, momentId, originalKey: saved.originalKey },
+      {
+        jobId: saved.id,
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 5000 },
+      },
+    );
 
     return new RestResponse<ConfirmPhotoResponseDto>().success(
       {

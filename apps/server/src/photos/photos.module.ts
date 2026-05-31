@@ -24,6 +24,7 @@ import { AuthModule } from '../auth/auth.module';
 import { MomentsModule } from '../moments/moments.module';
 import { R2Module } from '../r2/r2.module';
 
+import { PhotoProcessingProcessor } from './photo-processing.processor';
 import { Photo } from './photo.entity';
 import { PHOTO_PROCESSING_QUEUE } from './photos.constants';
 import { PhotosController } from './photos.controller';
@@ -47,7 +48,7 @@ import { PhotosService } from './photos.service';
     }),
     BullModule.registerQueue({ name: PHOTO_PROCESSING_QUEUE }),
   ],
-  providers: [PhotosService],
+  providers: [PhotosService, PhotoProcessingProcessor],
   controllers: [PhotosController],
   exports: [PhotosService],
 })
