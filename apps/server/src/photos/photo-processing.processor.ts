@@ -16,13 +16,16 @@
 //   - WebP 변환 quality 80~90 — 시각적 손실 작고 사이즈 절감 ↑
 //   - Promise.all 3 size 병렬 — 단일 job 안에선 무난 (메모리 임시 상승)
 
-import { Processor, WorkerHost } from '@nestjs/bullmq';
+import { OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
 import { Job } from 'bullmq';
 import sharp from 'sharp';
+import { Repository } from 'typeorm';
 
 import { R2Service } from '../r2/r2.service';
 
+import { Photo } from './photo.entity';
 import {
   buildThumbnailKey,
   type PhotoProcessingJobData,
@@ -36,7 +39,11 @@ import { PHOTO_PROCESSING_QUEUE } from './photos.constants';
 export class PhotoProcessingProcessor extends WorkerHost {
   private readonly logger = new Logger(PhotoProcessingProcessor.name);
 
-  constructor(private readonly r2Service: R2Service) {
+  constructor(
+    private readonly r2Service: R2Service,
+    @InjectRepository(Photo)
+    private readonly photoRepo: Repository<Photo>,
+  ) {
     super();
   }
 
@@ -64,7 +71,36 @@ export class PhotoProcessingProcessor extends WorkerHost {
       Promise.resolve({} as Record<ThumbnailSizeKey, string>),
     );
 
+    // DB 반영 — 처리 완료 표시 + 썸네일 key 박제 (모바일이 이 row 조회 시 thumb 사용 가능)
+    await this.photoRepo.update(photoId, {
+      thumbnailKeys,
+      processingStatus: 'done',
+    });
+
     this.logger.log(`Photo ${photoId} processed successfully (3 thumbs)`);
     return { photoId, thumbnailKeys };
+  }
+
+  /**
+   * BullMQ 실패 이벤트 — 매 실패 시도마다 호출됨 (retry 중간 포함).
+   * 최종 실패 (attempts 모두 소진) 시에만 DB를 'failed'로 마킹.
+   * 중간 실패는 자동 retry에 맡김 (status='pending' 유지).
+   */
+  @OnWorkerEvent('failed')
+  async onFailed(job: Job<PhotoProcessingJobData>): Promise<void> {
+    const maxAttempts = job.opts.attempts ?? 1;
+    if (job.attemptsMade < maxAttempts) {
+      this.logger.warn(
+        `Photo ${job.data.photoId} 처리 실패 — retry ${job.attemptsMade}/${maxAttempts}`,
+      );
+      return;
+    }
+
+    this.logger.error(
+      `Photo ${job.data.photoId} 처리 최종 실패 (${job.attemptsMade}회 시도): ${job.failedReason}`,
+    );
+    await this.photoRepo.update(job.data.photoId, {
+      processingStatus: 'failed',
+    });
   }
 }
