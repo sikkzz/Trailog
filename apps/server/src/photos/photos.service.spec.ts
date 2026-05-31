@@ -178,7 +178,7 @@ describe('PhotosService', () => {
   });
 
   describe('findPhotosByMomentId', () => {
-    it('본인 Moment의 사진 리스트 + 각 사진에 presigned GET URL', async () => {
+    it('처리 완료 사진은 thumbnailUrls 3 size 발급, 미완료 사진은 thumbnailUrls null', async () => {
       momentsService.findMomentByIdAndUserId.mockResolvedValue(mockMoment);
       const photos = [
         {
@@ -186,6 +186,12 @@ describe('PhotosService', () => {
           momentId: mockMomentId,
           userId: mockUserId,
           originalKey: `user/${mockUserId}/moments/${mockMomentId}/p1.jpg`,
+          thumbnailKeys: {
+            small: `user/${mockUserId}/moments/${mockMomentId}/thumbs/p1_small.webp`,
+            medium: `user/${mockUserId}/moments/${mockMomentId}/thumbs/p1_medium.webp`,
+            large: `user/${mockUserId}/moments/${mockMomentId}/thumbs/p1_large.webp`,
+          },
+          processingStatus: 'done',
           createdAt: new Date('2026-05-31T12:00:00Z'),
         },
         {
@@ -193,6 +199,8 @@ describe('PhotosService', () => {
           momentId: mockMomentId,
           userId: mockUserId,
           originalKey: `user/${mockUserId}/moments/${mockMomentId}/p2.jpg`,
+          thumbnailKeys: null,
+          processingStatus: 'pending',
           createdAt: new Date('2026-05-31T12:01:00Z'),
         },
       ] as Photo[];
@@ -202,8 +210,23 @@ describe('PhotosService', () => {
 
       expect(result.type).toBe(RestResponseType.SUCCESS);
       expect(result.data?.photos).toHaveLength(2);
+
+      // p1: 처리 완료 — thumbnailUrls 3 size 박힘 + 'done'
       expect(result.data?.photos[0].originalUrl).toBe('https://r2.../get?sig=...');
-      expect(r2Service.createPresignedGetUrl).toHaveBeenCalledTimes(2);
+      expect(result.data?.photos[0].thumbnailUrls).toEqual({
+        small: 'https://r2.../get?sig=...',
+        medium: 'https://r2.../get?sig=...',
+        large: 'https://r2.../get?sig=...',
+      });
+      expect(result.data?.photos[0].processingStatus).toBe('done');
+
+      // p2: 처리 미완료 — thumbnailUrls null + 'pending'
+      expect(result.data?.photos[1].thumbnailUrls).toBeNull();
+      expect(result.data?.photos[1].processingStatus).toBe('pending');
+
+      // 호출 횟수: p1 (original 1 + thumbs 3) + p2 (original 1) = 5
+      expect(r2Service.createPresignedGetUrl).toHaveBeenCalledTimes(5);
+
       expect(photoRepo.find).toHaveBeenCalledWith({
         where: { momentId: mockMomentId },
         order: { createdAt: 'ASC' },

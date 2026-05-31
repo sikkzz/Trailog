@@ -15,16 +15,20 @@
  */
 export type PhotoProcessingStatus = 'pending' | 'done' | 'failed';
 
-export type ThumbnailSizeKey = 's' | 'm' | 'l';
+/**
+ * 썸네일 size 키 — small/medium/large.
+ * API 응답 contract이므로 한 글자(s/m/l) 회피 — 외부 가독성 우선.
+ */
+export type ThumbnailSizeKey = 'small' | 'medium' | 'large';
 
 /** Photo entity `thumbnailKeys` jsonb 컬럼 형식. */
 export type PhotoThumbnailKeys = Record<ThumbnailSizeKey, string>;
 
 /** Width 기준 (height는 aspect ratio 유지). WebP 변환 quality 함께 정의. */
 export const THUMBNAIL_SIZES: Record<ThumbnailSizeKey, { width: number; quality: number }> = {
-  s: { width: 320, quality: 80 },
-  m: { width: 800, quality: 85 },
-  l: { width: 1600, quality: 90 },
+  small: { width: 320, quality: 80 },
+  medium: { width: 800, quality: 85 },
+  large: { width: 1600, quality: 90 },
 };
 
 /** BullMQ photo-processing 큐 job payload. */
@@ -36,8 +40,9 @@ export interface PhotoProcessingJobData {
 }
 
 /**
- * Job 처리 결과 — DB 업데이트용 (Phase 4.4 D3에 Photo entity 보강 시 사용).
+ * Job 처리 결과 — DB 업데이트용.
  * key 형식: `user/{userId}/moments/{momentId}/thumbs/{photoId}_{size}.webp`
+ *   ({size}는 'small' | 'medium' | 'large')
  */
 export interface PhotoProcessingJobResult {
   photoId: string;

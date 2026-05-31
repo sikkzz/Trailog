@@ -27,9 +27,13 @@ import {
   CreateUploadUrlResponseDto,
 } from './dtos/create-upload-url.dto';
 import { ConfirmPhotoRequestDto, ConfirmPhotoResponseDto } from './dtos/confirm-photo.dto';
-import { GetPhotosResponseDto, PhotoListItemDto } from './dtos/get-photos.dto';
+import {
+  GetPhotosResponseDto,
+  PhotoListItemDto,
+  PhotoThumbnailUrlsDto,
+} from './dtos/get-photos.dto';
 import { Photo } from './photo.entity';
-import type { PhotoProcessingJobData } from './photo-processing.types';
+import type { PhotoProcessingJobData, PhotoThumbnailKeys } from './photo-processing.types';
 import { PHOTO_PROCESSING_QUEUE } from './photos.constants';
 
 const EXT_TO_MIME: Record<string, string> = {
@@ -159,15 +163,35 @@ export class PhotosService {
     return `user/${userId}/moments/${momentId}/${photoId}.${ext}`;
   }
 
-  /** Photo entity → PhotoListItemDto. presigned GET URL 동봉. */
+  /**
+   * Photo entity → PhotoListItemDto.
+   * - originalUrl: 항상 발급
+   * - thumbnailUrls: thumbnailKeys 있으면 3 size 병렬 발급, 없으면 null
+   * - processingStatus: 모바일 UI 분기용
+   */
   private async toListItemDto(photo: Photo): Promise<PhotoListItemDto> {
     const originalUrl = await this.r2Service.createPresignedGetUrl(photo.originalKey);
+    const thumbnailUrls = photo.thumbnailKeys
+      ? await this.buildThumbnailUrls(photo.thumbnailKeys)
+      : null;
     return {
       id: photo.id,
       momentId: photo.momentId,
       originalKey: photo.originalKey,
       originalUrl,
+      thumbnailUrls,
+      processingStatus: photo.processingStatus,
       createdAt: photo.createdAt.toISOString(),
     };
+  }
+
+  /** 썸네일 3 size presigned GET URL 병렬 발급 — Promise.all로 대기 시간 단축. */
+  private async buildThumbnailUrls(keys: PhotoThumbnailKeys): Promise<PhotoThumbnailUrlsDto> {
+    const [small, medium, large] = await Promise.all([
+      this.r2Service.createPresignedGetUrl(keys.small),
+      this.r2Service.createPresignedGetUrl(keys.medium),
+      this.r2Service.createPresignedGetUrl(keys.large),
+    ]);
+    return { small, medium, large };
   }
 }
