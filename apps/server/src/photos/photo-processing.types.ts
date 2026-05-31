@@ -7,7 +7,18 @@
 //
 // Phase 2 4.6 모바일 화면 디자인 + 실측 후 재검토.
 
+/**
+ * Photo 처리 상태 — DB `photos.processing_status` 컬럼 값.
+ * - pending: confirm 직후, 아직 큐 작업 대기/진행 중
+ * - done: sharp 3 size + (4.5)EXIF 모두 성공
+ * - failed: retry 3회 소진 후 실패 (BullMQ onFailed → DB 마킹)
+ */
+export type PhotoProcessingStatus = 'pending' | 'done' | 'failed';
+
 export type ThumbnailSizeKey = 's' | 'm' | 'l';
+
+/** Photo entity `thumbnailKeys` jsonb 컬럼 형식. */
+export type PhotoThumbnailKeys = Record<ThumbnailSizeKey, string>;
 
 /** Width 기준 (height는 aspect ratio 유지). WebP 변환 quality 함께 정의. */
 export const THUMBNAIL_SIZES: Record<ThumbnailSizeKey, { width: number; quality: number }> = {
@@ -30,7 +41,7 @@ export interface PhotoProcessingJobData {
  */
 export interface PhotoProcessingJobResult {
   photoId: string;
-  thumbnailKeys: Record<ThumbnailSizeKey, string>;
+  thumbnailKeys: PhotoThumbnailKeys;
 }
 
 /** R2 thumbnail key 생성 — 도메인 무관 strict 형식. */
