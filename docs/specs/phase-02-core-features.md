@@ -117,13 +117,15 @@
 ### 4.6 모바일 첫 화면 (3일)
 
 - [ ] Expo Router 라우트 구조 (`(auth)/login`, `(auth)/signup`, `(tabs)/moments`, `(tabs)/map`, `photos/[id]`)
-- [ ] 로그인/회원가입 화면 (react-hook-form + zod)
+- [ ] 로그인/회원가입 화면 (react-hook-form + zod resolver)
 - [ ] 메인 — 본인 Moment 리스트 (React Query 적용)
 - [ ] Moment 상세 — 그 안의 사진들 grid
 - [ ] 사진 업로드 화면 (`expo-image-picker` + `expo-image`)
 - [ ] 업로드 진행 상태 표시 (per-photo progress bar)
 - [ ] 상태관리 도입 (Q9: Zustand vs Redux Toolkit) + React Query 캐싱
-- [ ] 학습 노트: Expo Router 패턴, expo-image-picker, React Query 사용
+- [ ] **Zod 응답 검증 도입** ([ADR-0008](../decisions/0008-zod-response-validation.md)) — Schema 정의 + `z.infer` 단일 출처 + `Schema.parse(response)` 런타임 검증
+- [ ] **기존 lib 정정** — `apps/mobile/src/lib/photos/` + `auth/` interface → Schema 변환 + parse 박기
+- [ ] 학습 노트: Expo Router 패턴, expo-image-picker, React Query 사용, Zod parse 패턴 + ZodError UX
 
 ### 4.7 지도 표시 (1주)
 
@@ -243,3 +245,4 @@ flowchart LR
 | 2026-05-31 | **4.3 D3 — Cloudflare R2 셋업 완료**. Cloudflare 가입 + R2 활성화 + 버킷 `trailog-photos-dev` (APAC) + Object R/W IAM token. 로컬 `apps/server/.env` 박제 + `pnpm verify:r2` 통과 (PUT/GET/Presigned/DELETE 4단계). `@aws-sdk/client-s3` + `@aws-sdk/s3-request-presigner` 의존성. 운영(Fly) 박제는 Q11 + prod 버킷 생성 시점.                                                                                                                                                                                                                                                              |
 | 2026-05-31 | **학습 노트** [typescript-strict-mode.md](../learnings/typescript-strict-mode.md) 작성 — DTO `!:` 질문에서 파생. strict 모드 7+ 옵션 비교 + Trailog `strict: true` vs 다른 NestJS 점진 enabling 패턴. ValidationPipe/TypeORM 신뢰 layer로 `!:` 안전성 박제. 함정 6종 (`!:` 남용, `as` 우회, `@ts-ignore`, catch unknown, interface 불일치 등) + 더 파볼 거리 7건 (점진 마이그레이션 PR, discriminated union, brand types, satisfies, zod 등).                                                                                                                                               |
 | 2026-05-31 | **🎉 4.3 사진 업로드 인프라 완료** — D4(R2Module + Photos 도메인 + presigned endpoints 3종 + 5단 보안 layer + 마이그레이션 4번째) + D5(모바일 client lib `apps/mobile/src/lib/photos/` — createPresignedUploadUrl/uploadPhotoToR2/confirmPhotoUpload/getMomentPhotos + uploadPhoto high-level 헬퍼). Web↔Mobile 비교 주석 박제(blob 생성, progress, CORS, timeout 차이). 모바일 단위 테스트는 4.6 RNTL+jest-expo 셋업과 함께. 다음: 4.4 sharp 이미지 처리 + BullMQ (썸네일 3 size + WebP).                                                                                                  |
+| 2026-05-31 | **학습 노트** [api-client-patterns.md](../learnings/api-client-patterns.md) + **ADR-0008** [Zod 응답 검증 도입](../decisions/0008-zod-response-validation.md) — 참조 Class+Zod 패턴 vs Trailog 함수+TS interface 비교. Class vs 함수는 트렌드(함수형) 따름. Zod 응답 검증은 Phase 2 4.6에 react-hook-form + zodResolver + React Query 자연 통합 시점 도입 결정. 기존 4.1 auth + 4.3 photos lib는 4.6 시점에 Schema 정정 (interface → z.infer 단일 출처). 함정 6종(Singleton import, apiRequest 암묵 의존, parse 비용, ZodError 처리, 타입+Schema 중복, Class vs 함수 실제 차이 작음).       |
