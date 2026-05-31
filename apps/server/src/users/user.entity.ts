@@ -19,19 +19,26 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
-@Entity('users')
+@Entity({ name: 'users', comment: '사용자 — 인증 + Moment/Photo 소유자' })
 export class User {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
   // email 검증은 DTO/class-validator로 별도 처리. DB는 unique만 보장.
   @Index({ unique: true })
-  @Column({ type: 'varchar', length: 255 })
+  @Column({
+    type: 'varchar',
+    length: 255,
+    comment: '로그인 식별자 이메일 (unique). 형식 검증은 DTO 레이어',
+  })
   email!: string;
 
-  // bcrypt hash 길이는 60자 고정이지만 알고리즘 변경 가능성 대비 varchar(255).
-  // select: false → findOne 기본 호출 시 password 컬럼 제외. 인증 시에만 명시적 select.
-  @Column({ type: 'varchar', length: 255, select: false })
+  @Column({
+    type: 'varchar',
+    length: 255,
+    select: false,
+    comment: 'bcrypt hash 저장 (raw 비밀번호 금지). select:false로 기본 조회 제외',
+  })
   password!: string;
 
   @CreateDateColumn({ type: 'timestamptz' })

@@ -29,13 +29,16 @@ import {
 
 import { User } from '../users/user.entity';
 
-@Entity('moments')
+@Entity({
+  name: 'moments',
+  comment: '순간 — 사진/장소/시간으로 박제된 한 단위 (여행/카페/산책 등 모두)',
+})
 export class Moment {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
   @Index()
-  @Column({ name: 'user_id', type: 'uuid' })
+  @Column({ name: 'user_id', type: 'uuid', comment: '소유자 User.id (FK, ON DELETE CASCADE)' })
   userId!: string;
 
   // FK 제약 + ON DELETE CASCADE — DB 무결성 강제 + 사용자 탈퇴 시 자동 cleanup
@@ -43,18 +46,27 @@ export class Moment {
   @JoinColumn({ name: 'user_id' })
   user!: User;
 
-  // 순간 제목 — 자유 표현 ("도쿄 여행", "성수 ABC 카페", "퇴근 한강 산책" 등). 255자.
-  @Column({ type: 'varchar', length: 255 })
+  @Column({
+    type: 'varchar',
+    length: 255,
+    comment: '순간 제목 — 자유 표현 ("도쿄 여행", "성수 ABC 카페" 등)',
+  })
   title!: string;
 
-  // 순간 시작/종료 (사용자 입력, 선택).
-  // - 장기 여행: 둘 다 채움
-  // - 단발 방문: 둘 다 null 또는 startedAt만
-  // EXIF takenAt(Phase 2 4.5)과 별개 — 사용자 의도 표현.
-  @Column({ name: 'started_at', type: 'timestamptz', nullable: true })
+  @Column({
+    name: 'started_at',
+    type: 'timestamptz',
+    nullable: true,
+    comment: '시작 시각 (사용자 입력, 선택). EXIF takenAt과 별개 — 사용자 의도 표현',
+  })
   startedAt!: Date | null;
 
-  @Column({ name: 'ended_at', type: 'timestamptz', nullable: true })
+  @Column({
+    name: 'ended_at',
+    type: 'timestamptz',
+    nullable: true,
+    comment: '종료 시각 (사용자 입력, 선택). 장기 여행은 둘 다 채움, 단발은 둘 다 null OK',
+  })
   endedAt!: Date | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })

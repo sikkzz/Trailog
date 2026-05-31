@@ -10,7 +10,7 @@
 // - userId denorm: 권한 체크 빠르게 (moment 거치지 않고 본인 사진 직접 조회)
 //
 // Phase 후속 추가 예상:
-// - 4.4 sharp: thumbnailUrls jsonb + processingStatus enum
+// - 4.4 sharp: thumbnailKeys jsonb + processingStatus
 // - 4.5 EXIF: takenAt timestamptz + location geometry(Point, 4326) + exifJson
 
 import {
@@ -27,13 +27,17 @@ import {
 import { Moment } from '../moments/moment.entity';
 import { User } from '../users/user.entity';
 
-@Entity('photos')
+@Entity({ name: 'photos', comment: 'Moment에 속한 사진 1장 — 원본 R2 key + 썸네일 + 처리 상태' })
 export class Photo {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
   @Index()
-  @Column({ name: 'moment_id', type: 'uuid' })
+  @Column({
+    name: 'moment_id',
+    type: 'uuid',
+    comment: '소속 Moment.id (FK, ON DELETE CASCADE)',
+  })
   momentId!: string;
 
   @ManyToOne(() => Moment, { onDelete: 'CASCADE' })
@@ -41,15 +45,23 @@ export class Photo {
   moment!: Moment;
 
   @Index()
-  @Column({ name: 'user_id', type: 'uuid' })
+  @Column({
+    name: 'user_id',
+    type: 'uuid',
+    comment: '소유자 User.id denorm — 권한 체크 빠르게 (FK, ON DELETE CASCADE)',
+  })
   userId!: string;
 
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
   user!: User;
 
-  // R2 객체 key — 사용자별 prefix 강제: user/{userId}/moments/{momentId}/{photoId}.{ext}
-  @Column({ name: 'original_key', type: 'varchar', length: 512 })
+  @Column({
+    name: 'original_key',
+    type: 'varchar',
+    length: 512,
+    comment: 'R2 객체 key — 형식: user/{userId}/moments/{momentId}/{photoId}.{ext}',
+  })
   originalKey!: string;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
