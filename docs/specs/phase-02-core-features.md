@@ -77,17 +77,21 @@
 - Photo.takenAt / location (PostGIS Point) / exifJson → 4.5 EXIF 진입 시 추가
 - User 보강 (displayName, lastLoginAt 등) → 4.6 모바일 화면 디자인 시점에 필요분만
 
-### 4.3 사진 업로드 인프라 (R2 presigned URL) (1주)
+### 4.3 사진 업로드 인프라 (R2 presigned URL) — ✅ 완료 (2026-05-31)
 
-- [ ] **Moment entity 초안** + 마이그레이션 (id, userId FK, title, startedAt, endedAt — 만들기 기능에 필요한 최소 컬럼). 도메인: 여행/카페/산책/단발 무관.
-- [ ] **Photo entity 초안** + 마이그레이션 (id, momentId FK, userId FK denorm, originalUrl, createdAt/updatedAt — 업로드 흐름에 필요한 최소 컬럼)
-- [ ] Cloudflare R2 버킷 생성 + IAM 토큰
-- [ ] `POST /photos/upload-url` → presigned PUT URL 발급 (5분 만료)
-- [ ] 클라이언트가 R2에 **직접 업로드** (서버 안 거침, 트래픽 비용 절감)
-- [ ] `POST /photos` → 업로드 완료 알림 + Photo row 생성
-- [ ] 보안: 사용자별 prefix (`user/{userId}/photos/{photoId}.{ext}`), URL 만료
-- [x] R2 presigned URL 학습 노트 ([r2-presigned-url-basics.md](../learnings/r2-presigned-url-basics.md) — S3 호환 API, presigned 흐름, Signature V4, IAM token, 함정 8종)
+- [x] **Moment entity 초안** + 마이그레이션 (id, userId FK, title, startedAt, endedAt). 도메인: 여행/카페/산책/단발 무관.
+- [x] **Photo entity 초안** + 마이그레이션 (id, momentId FK CASCADE, userId FK CASCADE denorm, originalKey varchar(512))
+- [x] Cloudflare R2 버킷 생성 + IAM 토큰 (`trailog-photos-dev`, APAC, Object R/W)
+- [x] `POST /moments/:momentId/photos/upload-url` → presigned PUT URL 발급 (5분 만료)
+- [x] 클라이언트가 R2에 **직접 업로드** (모바일 lib `uploadPhotoToR2` — `apps/mobile/src/lib/photos/`)
+- [x] `POST /moments/:momentId/photos` → 업로드 완료 알림 + Photo row 생성 + key prefix 재검증
+- [x] `GET /moments/:momentId/photos` → 사진 리스트 + presigned GET URL 동봉 (1시간 만료)
+- [x] 보안: 사용자별 prefix (`user/{userId}/moments/{momentId}/{photoId}.{ext}`), 5단 보안 layer
+- [x] R2 presigned URL 학습 노트 ([r2-presigned-url-basics.md](../learnings/r2-presigned-url-basics.md))
 - [x] **ADR Q3 확정**: 이미지 저장소 — Cloudflare R2 ([ADR-0007](../decisions/0007-image-storage-r2.md))
+- [x] (추가) 모바일 client lib (`apps/mobile/src/lib/photos/`) — 4 helper + uploadPhoto high-level 헬퍼
+
+검증: Swagger UI(/api/docs) + 백엔드 40 tests 통과. R2 검증 스크립트(`pnpm verify:r2`) PUT/GET/Presigned/DELETE 4단계. 모바일 lib 실 검증은 Phase 2 4.6 (expo-image-picker 추가 + dev build 재빌드).
 
 ### 4.4 sharp 이미지 처리 + BullMQ (5일)
 
@@ -238,3 +242,4 @@ flowchart LR
 | 2026-05-31 | **4.3 D2 — Q3 이미지 저장소 R2 확정 ([ADR-0007](../decisions/0007-image-storage-r2.md))** + 학습 노트 [r2-presigned-url-basics.md](../learnings/r2-presigned-url-basics.md) 작성. R2 vs S3 vs Supabase Storage vs B2 4 비교 — R2 채택 (egress 무료, S3 호환 API, 10GB 무료, 글로벌 anycast). 학습 노트엔 Signature V4, IAM token, presigned URL 흐름, NestJS @aws-sdk 사용 패턴, 함정 8종(ContentType mismatch, CORS, 만료 시간, prefix, public X 등). 다음: 4.3 D3 R2 셋업(버킷 + IAM + Fly secrets) + D4 Photo entity + presigned endpoint.                                               |
 | 2026-05-31 | **4.3 D3 — Cloudflare R2 셋업 완료**. Cloudflare 가입 + R2 활성화 + 버킷 `trailog-photos-dev` (APAC) + Object R/W IAM token. 로컬 `apps/server/.env` 박제 + `pnpm verify:r2` 통과 (PUT/GET/Presigned/DELETE 4단계). `@aws-sdk/client-s3` + `@aws-sdk/s3-request-presigner` 의존성. 운영(Fly) 박제는 Q11 + prod 버킷 생성 시점.                                                                                                                                                                                                                                                              |
 | 2026-05-31 | **학습 노트** [typescript-strict-mode.md](../learnings/typescript-strict-mode.md) 작성 — DTO `!:` 질문에서 파생. strict 모드 7+ 옵션 비교 + Trailog `strict: true` vs 다른 NestJS 점진 enabling 패턴. ValidationPipe/TypeORM 신뢰 layer로 `!:` 안전성 박제. 함정 6종 (`!:` 남용, `as` 우회, `@ts-ignore`, catch unknown, interface 불일치 등) + 더 파볼 거리 7건 (점진 마이그레이션 PR, discriminated union, brand types, satisfies, zod 등).                                                                                                                                               |
+| 2026-05-31 | **🎉 4.3 사진 업로드 인프라 완료** — D4(R2Module + Photos 도메인 + presigned endpoints 3종 + 5단 보안 layer + 마이그레이션 4번째) + D5(모바일 client lib `apps/mobile/src/lib/photos/` — createPresignedUploadUrl/uploadPhotoToR2/confirmPhotoUpload/getMomentPhotos + uploadPhoto high-level 헬퍼). Web↔Mobile 비교 주석 박제(blob 생성, progress, CORS, timeout 차이). 모바일 단위 테스트는 4.6 RNTL+jest-expo 셋업과 함께. 다음: 4.4 sharp 이미지 처리 + BullMQ (썸네일 3 size + WebP).                                                                                                  |
