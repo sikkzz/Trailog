@@ -11,7 +11,7 @@
 
 ## 1. 한 줄 요약
 
-도메인 본격 시작. 사용자가 **회원가입 → 여행 만들기 → 사진 업로드 → 지도에서 보기**까지 한 호흡에. 학습 영역 #2 (이미지/미디어) + #3 (지도/데이터 시각화)를 동시에 충족.
+도메인 본격 시작. 사용자가 **회원가입 → Moment 만들기 → 사진 업로드 → 지도에서 보기**까지 한 호흡에. 학습 영역 #2 (이미지/미디어) + #3 (지도/데이터 시각화)를 동시에 충족.
 
 ## 2. 배경 / 왜 만드는가
 
@@ -86,8 +86,8 @@
 - [ ] 클라이언트가 R2에 **직접 업로드** (서버 안 거침, 트래픽 비용 절감)
 - [ ] `POST /photos` → 업로드 완료 알림 + Photo row 생성
 - [ ] 보안: 사용자별 prefix (`user/{userId}/photos/{photoId}.{ext}`), URL 만료
-- [ ] R2 presigned URL 학습 노트 (S3 호환 API, presigned 흐름, egress 0)
-- [ ] **ADR 후보**: 이미지 저장소 (R2 vs Supabase Storage vs S3) — Q3
+- [x] R2 presigned URL 학습 노트 ([r2-presigned-url-basics.md](../learnings/r2-presigned-url-basics.md) — S3 호환 API, presigned 흐름, Signature V4, IAM token, 함정 8종)
+- [x] **ADR Q3 확정**: 이미지 저장소 — Cloudflare R2 ([ADR-0007](../decisions/0007-image-storage-r2.md))
 
 ### 4.4 sharp 이미지 처리 + BullMQ (5일)
 
@@ -114,8 +114,8 @@
 
 - [ ] Expo Router 라우트 구조 (`(auth)/login`, `(auth)/signup`, `(tabs)/moments`, `(tabs)/map`, `photos/[id]`)
 - [ ] 로그인/회원가입 화면 (react-hook-form + zod)
-- [ ] 메인 — 본인 여행 리스트 (React Query 적용)
-- [ ] 여행 상세 — 그 안의 사진들 grid
+- [ ] 메인 — 본인 Moment 리스트 (React Query 적용)
+- [ ] Moment 상세 — 그 안의 사진들 grid
 - [ ] 사진 업로드 화면 (`expo-image-picker` + `expo-image`)
 - [ ] 업로드 진행 상태 표시 (per-photo progress bar)
 - [ ] 상태관리 도입 (Q9: Zustand vs Redux Toolkit) + React Query 캐싱
@@ -235,3 +235,4 @@ flowchart LR
 | 2026-05-30 | **방식 전환 — 4.2 Feature-first incremental schema**. 본인 entity 설계 방식(feature 작업 시작 시 초안 → 기능 개발하면서 점진 추가) 박제(메모리 `feedback-feature-first-schema`). Phase 2 4.2 항목 재정의 — entity 미리 설계 X, 인프라(PostGIS 확장 enable + 자동 migration CI + 학습 노트)만. Trip entity → 4.3 진입 시점, Photo 초안 → 4.3 / 보강 → 4.4 / 4.5 점진. 4.2 기간 3일 → 2일 단축.                                                                                                                                                                                               |
 | 2026-05-30 | 4.2 인프라 **완료** — Node 20 → 22 LTS 업그레이드(보안 패치 + TypeORM yargs ESM 호환), PostGIS 확장 enable 마이그레이션(`CREATE EXTENSION IF NOT EXISTS postgis`) + Fly `release_command`로 자동 migration 박제, 학습 노트 2건(`postgis-basics.md` + `indexes-strategy.md`). 마이그레이션 검수 룰 메모리 박제(`feedback-migration-confirmation` — 본인 OK 후 실행). 다음: 4.3 사진 업로드 인프라 진입 (Trip entity 초안 + R2 presigned URL + Photo entity 초안 + 모바일 client 통합).                                                                                                       |
 | 2026-05-31 | **도메인 광의 재정의 + Moment 명명 확정**. 처음 "여행 사진 아카이브"로 그렸으나 본인 의도가 "여행 + 일상 모든 순간(카페/산책/단발 외출 포함) 아카이브"임 확인. 기록 단위를 `Trip` → `Moment`로 변경. Trailog 어휘(Trail + Log)는 광의에도 충분 — "a trail of moments". PROJECT_ROOT 도메인 정의 + 결정 1 + 사용자 스토리 + 4.3 항목 + Mermaid 흐름 정정. 4.3 D1 코드(entity/dto/service/controller/module/spec/migration) 모두 Moment 명명으로 작성. Controller/Service 메서드명 룰(동사 + 도메인 명사 명시) 추가 박제 — UsersService + AuthService + AuthController 일관 정정 별도 commit. |
+| 2026-05-31 | **4.3 D2 — Q3 이미지 저장소 R2 확정 ([ADR-0007](../decisions/0007-image-storage-r2.md))** + 학습 노트 [r2-presigned-url-basics.md](../learnings/r2-presigned-url-basics.md) 작성. R2 vs S3 vs Supabase Storage vs B2 4 비교 — R2 채택 (egress 무료, S3 호환 API, 10GB 무료, 글로벌 anycast). 학습 노트엔 Signature V4, IAM token, presigned URL 흐름, NestJS @aws-sdk 사용 패턴, 함정 8종(ContentType mismatch, CORS, 만료 시간, prefix, public X 등). 다음: 4.3 D3 R2 셋업(버킷 + IAM + Fly secrets) + D4 Photo entity + presigned endpoint.                                               |
