@@ -1,13 +1,16 @@
 // PhotosService 단위 테스트.
 //
 // 학습 포인트:
-// - Repository / MomentsService / R2Service 모두 mock으로 주입.
+// - Repository / MomentsService / R2Service / BullMQ Queue 모두 mock으로 주입.
 // - crypto.randomUUID는 결정적 — jest.spyOn(crypto, 'randomUUID')로 고정 가능.
 // - 권한 검증 (다른 사용자 Moment 차단) + key prefix 검증 (조작 시도 차단) 우선.
+// - confirm 성공 시 photo-processing 큐에 enqueue 됐는지 검증 (Phase 2 4.4 D2).
 
+import { getQueueToken } from '@nestjs/bullmq';
 import { HttpStatus } from '@nestjs/common';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import type { Queue } from 'bullmq';
 import type { Repository } from 'typeorm';
 
 import { RestResponseCode, RestResponseType } from '../common';
@@ -16,6 +19,8 @@ import { MomentsService } from '../moments/moments.service';
 import { R2Service } from '../r2/r2.service';
 
 import { Photo } from './photo.entity';
+import type { PhotoProcessingJobData } from './photo-processing.types';
+import { PHOTO_PROCESSING_QUEUE } from './photos.constants';
 import { PhotosService } from './photos.service';
 
 describe('PhotosService', () => {
@@ -23,6 +28,7 @@ describe('PhotosService', () => {
   let photoRepo: jest.Mocked<Repository<Photo>>;
   let momentsService: jest.Mocked<MomentsService>;
   let r2Service: jest.Mocked<R2Service>;
+  let photoProcessingQueue: jest.Mocked<Queue<PhotoProcessingJobData>>;
 
   const mockUserId = 'user-uuid-1';
   const mockMomentId = 'moment-uuid-1';
@@ -45,12 +51,17 @@ describe('PhotosService', () => {
       deleteObject: jest.fn(),
     } as never;
 
+    photoProcessingQueue = {
+      add: jest.fn().mockResolvedValue(undefined),
+    } as never;
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PhotosService,
         { provide: getRepositoryToken(Photo), useValue: photoRepo },
         { provide: MomentsService, useValue: momentsService },
         { provide: R2Service, useValue: r2Service },
+        { provide: getQueueToken(PHOTO_PROCESSING_QUEUE), useValue: photoProcessingQueue },
       ],
     }).compile();
 
@@ -124,6 +135,16 @@ describe('PhotosService', () => {
         userId: mockUserId,
         originalKey: validKey,
       });
+      // photo-processing 큐에 enqueue 됐는지 (jobId=photoId 멱등 + retry 3회 exp backoff)
+      expect(photoProcessingQueue.add).toHaveBeenCalledWith(
+        'process',
+        { photoId, userId: mockUserId, momentId: mockMomentId, originalKey: validKey },
+        expect.objectContaining({
+          jobId: photoId,
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 5000 },
+        }),
+      );
     });
 
     it('다른 사용자 prefix key를 보내면 FORBIDDEN (조작 시도 차단)', async () => {
@@ -139,6 +160,7 @@ describe('PhotosService', () => {
       expect(result.code).toBe(RestResponseCode.FORBIDDEN);
       expect(result.status).toBe(HttpStatus.FORBIDDEN);
       expect(photoRepo.save).not.toHaveBeenCalled();
+      expect(photoProcessingQueue.add).not.toHaveBeenCalled();
     });
 
     it('다른 사용자 Moment면 NOT_FOUND (권한 검증 우선)', async () => {
