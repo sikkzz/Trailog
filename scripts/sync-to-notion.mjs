@@ -83,6 +83,39 @@ const notion = new Client({ auth: NOTION_TOKEN });
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+/**
+ * Notion API 호출 retry wrapper — 일시적 에러(5xx, 429, 네트워크)만 재시도.
+ *
+ * - 4xx (인증, validation): 재시도 X — 즉시 throw
+ * - 5xx (서버 일시 장애): exponential backoff retry
+ * - 429 (rate limit): exponential backoff retry
+ * - 네트워크 (status 없음): retry
+ *
+ * 사유: 2026-05-31 502 에러로 sync 실패 경험. Notion API는 502/503 간헐 발생.
+ *
+ * 사용:
+ *   await withRetry(() => notion.pages.create({...}));
+ */
+async function withRetry(fn, { retries = 3, baseDelayMs = 1000 } = {}) {
+  let lastError;
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+      const status = error?.status;
+      const isRetryable = !status || status >= 500 || status === 429;
+      if (!isRetryable || attempt === retries) throw error;
+      const delay = baseDelayMs * 2 ** attempt;
+      console.warn(
+        `  ⚠️ Notion API 일시 실패 (status ${status ?? 'network'}), ${delay}ms 후 재시도 (${attempt + 1}/${retries})`,
+      );
+      await sleep(delay);
+    }
+  }
+  throw lastError;
+}
+
 let requestCount = 0;
 async function rateLimit() {
   requestCount += 1;
@@ -437,11 +470,13 @@ async function listChildPages(parentId) {
   const pages = [];
   let cursor;
   do {
-    const res = await notion.blocks.children.list({
-      block_id: parentId,
-      start_cursor: cursor,
-      page_size: 100,
-    });
+    const res = await withRetry(() =>
+      notion.blocks.children.list({
+        block_id: parentId,
+        start_cursor: cursor,
+        page_size: 100,
+      }),
+    );
     await rateLimit();
     for (const block of res.results) {
       if (block.type === 'child_page') {
@@ -457,15 +492,17 @@ async function listChildPages(parentId) {
 async function clearPageContent(pageId, { keepChildPages = false } = {}) {
   let cursor;
   do {
-    const res = await notion.blocks.children.list({
-      block_id: pageId,
-      start_cursor: cursor,
-      page_size: 100,
-    });
+    const res = await withRetry(() =>
+      notion.blocks.children.list({
+        block_id: pageId,
+        start_cursor: cursor,
+        page_size: 100,
+      }),
+    );
     await rateLimit();
     for (const block of res.results) {
       if (keepChildPages && block.type === 'child_page') continue;
-      await notion.blocks.delete({ block_id: block.id });
+      await withRetry(() => notion.blocks.delete({ block_id: block.id }));
       await rateLimit();
     }
     cursor = res.has_more ? res.next_cursor : undefined;
@@ -480,10 +517,12 @@ async function getOrCreatePage(parentId, title) {
   if (DRY_RUN) {
     return { id: 'DRY_RUN_PAGE_ID', created: true };
   }
-  const res = await notion.pages.create({
-    parent: { page_id: parentId },
-    properties: { title: { title: [{ type: 'text', text: { content: title } }] } },
-  });
+  const res = await withRetry(() =>
+    notion.pages.create({
+      parent: { page_id: parentId },
+      properties: { title: { title: [{ type: 'text', text: { content: title } }] } },
+    }),
+  );
   await rateLimit();
   return { id: res.id, created: true };
 }
@@ -506,7 +545,7 @@ async function upsertLeafPage(parentId, title, blocks) {
   // children 100개씩 batch
   for (let i = 0; i < blocks.length; i += MAX_BLOCKS_PER_REQUEST) {
     const batch = blocks.slice(i, i + MAX_BLOCKS_PER_REQUEST);
-    await notion.blocks.children.append({ block_id: pageId, children: batch });
+    await withRetry(() => notion.blocks.children.append({ block_id: pageId, children: batch }));
     await rateLimit();
   }
   return pageId;
