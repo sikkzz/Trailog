@@ -373,21 +373,32 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
-@Entity('users') // table 이름 명시 (복수, snake_case)
+// @Entity 자체에 도메인 의미 (한국어 comment)
+@Entity({ name: 'users', comment: '사용자 — 인증 + 도메인 자산 소유자' })
 export class User {
   @PrimaryGeneratedColumn('uuid') // uuid 권장 (분산 가능 + 노출 안전)
   id!: string;
 
-  @Column({ unique: true })
+  @Column({
+    type: 'varchar',
+    length: 255,
+    comment: '로그인 식별자 이메일 (unique). 형식 검증은 DTO 레이어',
+  })
   email!: string;
 
-  @Column({ name: 'password_hash' }) // DB 컬럼은 snake_case
+  @Column({
+    name: 'password_hash', // DB 컬럼은 snake_case
+    type: 'varchar',
+    length: 255,
+    select: false,
+    comment: 'bcrypt hash 저장 (raw 비밀번호 금지). select:false로 기본 조회 제외',
+  })
   passwordHash!: string; // TS 필드는 camelCase
 
-  @CreateDateColumn({ name: 'created_at' })
+  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
 
-  @UpdateDateColumn({ name: 'updated_at' })
+  @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
   updatedAt!: Date;
 }
 ```
@@ -401,10 +412,48 @@ export class User {
 - **timestamps 필수**: `created_at`, `updated_at`. soft delete 필요하면 `deleted_at` (`@DeleteDateColumn`)
 - **인덱스 명시**: `@Index()` — unique constraint, 자주 조회되는 FK, 정렬 사용 컬럼
 - **컬럼 nullable 명시** — `@Column({ nullable: true })`. 기본값은 NOT NULL
+- **DB COMMENT 필수** — `@Entity({ comment })` + `@Column({ ..., comment })` 한국어 명시 (자세히 ↓)
+
+### DB COMMENT 필수 (인수인계 패턴)
+
+모든 entity/column에 한국어 `comment` 옵션 강제. TypeORM이 마이그레이션 SQL에
+`COMMENT ON TABLE/COLUMN` 자동 박음 → psql `\d+` / DBeaver / TablePlus 등 GUI에서
+컬럼 의미가 직접 노출됨 (TS 주석은 DB inspect 시 안 보임).
+
+**적용 대상:**
+
+- `@Entity({ name: 'xxx', comment: '도메인 의미' })` — table-level 한국어 설명
+- 모든 `@Column({ ..., comment: '...' })` — 컬럼 의미 + 사용 상태 명시
+  ('현재는 미사용', 'OFFICIAL만 사용 중', '회원가입 시점부터 채워짐' 등)
+- enum / 상태 컬럼 → comment에 **"사용 중인 값"** 명시
+  (예: `'pending/done/failed — confirm 직후 pending'`)
+
+**예외 (comment 생략 OK):**
+
+- `@PrimaryGeneratedColumn` — TypeORM API에 `comment` 옵션 없음 (자동 id 명확)
+- `@CreateDateColumn` / `@UpdateDateColumn` / `@DeleteDateColumn` — 감사용 자명
+- 관계 데코레이터 (`@ManyToOne` / `@OneToMany` / `@OneToOne` / `@JoinColumn`)
+  → `comment` 옵션 없음 → 위에 `// 관계 의미` 한 줄 TS 주석으로 대체
+
+**사유:**
+
+- TS 주석은 DB 직접 inspect 시 안 보임 (DBA, 데이터 분석가, 인수인계자는 코드 안 봄)
+- 마이그레이션 SQL이 self-document — 외부 협업자 ramp-up 비용 ↓
+- 미래 본인 망각 대비 (학습 프로젝트 특히 중요)
+- 참조 백엔드 인수인계 패턴 일관 (메모리 `feedback-entity-comment-pattern` 참조)
+
+**검증:**
+
+- `migration:generate` 후 SQL에 `COMMENT ON TABLE/COLUMN` 라인이 박혀있는지 확인
+- 빠지면 entity `comment` 옵션 누락 → entity 수정 후 마이그레이션 재생성
+- 적용 검수: `docker exec ... psql -U trailog -d trailog -c "\d+ table_name"`의
+  Description 컬럼에 한국어가 박혔는지
 
 ## 마이그레이션
 
 - **CLI로 생성**: `pnpm migration:generate` (entity 변경 자동 감지)
+- **COMMENT 변경도 자동 generate 잡힘** — entity `comment` 옵션 추가/수정 후
+  `migration:generate`로 `COMMENT ON TABLE/COLUMN` SQL 자동 생성
 - **수동 작성**: `pnpm migration:create` (raw SQL이나 PostGIS 확장 등 entity로 표현 불가한 것)
 - **production에서 `synchronize: true` 절대 금지** — 마이그레이션으로만 스키마 변경
 - **마이그레이션은 reversible** — `up`은 반드시 `down`도 함께 작성
