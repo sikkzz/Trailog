@@ -369,3 +369,56 @@ SYNC_CHANGED_FILES="docs/learnings/notion-sync-automation.md" pnpm sync:notion
 # 강제 전체 sync
 pnpm sync:notion -- --all
 ```
+
+### 2026-06-01 추가 — Archived 페이지 함정 + 근본 fragility 인식
+
+#### 증상
+
+Sync 실행 중 다음 에러로 워크플로 실패:
+
+```
+@notionhq/client warn: request fail {
+  code: 'validation_error',
+  message: "Can't edit block that is archived. You must unarchive the block before editing."
+}
+```
+
+#### 원인
+
+`listChildPages`가 Notion `blocks.children.list` 결과의 **`archived: true` 블록까지 포함**해 reuse 처리.
+사용자가 Notion에서 페이지를 휴지통으로 옮긴 시점에 같은 제목의 페이지가 list 결과에
+"archived" 상태로 그대로 보이고, sync 스크립트는 그걸 그대로 update 시도 → API가 거절.
+
+#### 처방 (단기)
+
+`listChildPages`에서 `block.archived === false`인 child_page만 reuse 대상으로 추림.
+archived 페이지는 list에서 무시 → `found` 안 됨 → 새 페이지 create.
+
+```javascript
+if (block.type === 'child_page' && !block.archived) {
+  pages.push({ id: block.id, title: block.child_page.title });
+}
+```
+
+**왜 자동 unarchive 안 하는가**: 사용자가 archive한 의도 (백업/정리) 자동 거스르는 부작용 회피.
+"archived = 삭제된 것" 으로 간주하고 같은 제목의 새 페이지 생성. 휴지통은 사용자가 정리.
+
+#### 더 큰 패턴 인식 — 자체 sync의 본질적 fragility
+
+이번이 도입 후 fix 5번째. 패턴 정리:
+
+| Fix                        | 원인                                                                 |
+| -------------------------- | -------------------------------------------------------------------- |
+| b611d8b JWT link 형식 정정 | 자체 markdown 정규식 파서의 한계                                     |
+| 89f4c91 retry wrapper      | Notion API 502/503/429 변덕                                          |
+| 이번 archived 필터         | "title로 페이지 매칭"의 한계 (이름 변경/archive/이동 모든 edge case) |
+
+근본 원인 = **idempotent upsert by title** + **자체 markdown 파서** 두 책임이 본질적으로 fragile.
+매 fix는 대증요법 — 끝없는 사이클.
+
+#### 처방 (중기) — Phase 2 종료 후 검토
+
+- **frontmatter `notion_page_id` 정착** — 첫 sync 시 ID 발급 → CI가 frontmatter에 박고 git commit back
+  → 이후 ID로 직접 `notion.pages.update(id)` → title/archive/이동 무관 (실세계 sync 패턴의 정답)
+- **markdown 파서 외부 라이브러리 도입** (`@tryfabric/martian`) — 자체 파서 폐기로 그 영역 fragility 종료
+- ADR-0005 재검토 노트 + 마이그레이션 commit 분리

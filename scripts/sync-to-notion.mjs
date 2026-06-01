@@ -479,7 +479,10 @@ async function listChildPages(parentId) {
     );
     await rateLimit();
     for (const block of res.results) {
-      if (block.type === 'child_page') {
+      // archived(휴지통) 페이지는 무시 — Notion API가 archived도 list 결과에 포함하지만
+      // 그 페이지에 edit/delete 시도하면 "Can't edit block that is archived" 에러.
+      // 무시하고 새 페이지 create → 사용자가 archive한 의도 (백업/정리) 존중.
+      if (block.type === 'child_page' && !block.archived) {
         pages.push({ id: block.id, title: block.child_page.title });
       }
     }
