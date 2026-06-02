@@ -36,13 +36,11 @@ import {
 import { Moment } from '../moments/moment.entity';
 import { User } from '../users/user.entity';
 
-import type { PhotoProcessingStatus, PhotoThumbnailKeys } from './photo-processing.types';
-
-/** PostGIS Point geometry — GeoJSON 형식. coordinates는 [longitude, latitude] 순서 (GeoJSON 표준). */
-export interface PhotoLocation {
-  type: 'Point';
-  coordinates: [number, number];
-}
+import type {
+  PhotoLocation,
+  PhotoProcessingStatus,
+  PhotoThumbnailKeys,
+} from './photo-processing.types';
 
 @Entity({ name: 'photos', comment: 'Moment에 속한 사진 1장 — 원본 R2 key + 썸네일 + 처리 상태' })
 export class Photo {

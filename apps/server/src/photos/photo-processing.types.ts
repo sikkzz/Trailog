@@ -24,6 +24,25 @@ export type ThumbnailSizeKey = 'small' | 'medium' | 'large';
 /** Photo entity `thumbnailKeys` jsonb 컬럼 형식. */
 export type PhotoThumbnailKeys = Record<ThumbnailSizeKey, string>;
 
+/**
+ * PostGIS Point geometry — GeoJSON 형식.
+ * coordinates는 [longitude, latitude] 순서 (GeoJSON 표준 — lat/lng 아님 주의).
+ */
+export interface PhotoLocation {
+  type: 'Point';
+  coordinates: [number, number];
+}
+
+/**
+ * Worker에서 EXIF 추출 결과 — DB update payload.
+ * EXIF 없거나 파싱 실패 시 각 필드 null (사진 자체는 정상 처리).
+ */
+export interface PhotoExifData {
+  takenAt: Date | null;
+  location: PhotoLocation | null;
+  exifJson: Record<string, unknown> | null;
+}
+
 /** Width 기준 (height는 aspect ratio 유지). WebP 변환 quality 함께 정의. */
 export const THUMBNAIL_SIZES: Record<ThumbnailSizeKey, { width: number; quality: number }> = {
   small: { width: 320, quality: 80 },
