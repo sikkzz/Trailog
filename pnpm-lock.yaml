@@ -150,6 +150,9 @@ importers:
       dotenv:
         specifier: ^17.4.2
         version: 17.4.2
+      exifreader:
+        specifier: ^4.40.3
+        version: 4.40.3
       ioredis:
         specifier: ^5.11.0
         version: 5.11.0
@@ -3604,6 +3607,9 @@ packages:
   execa@5.1.1:
     resolution: {integrity: sha512-8uSpZZocAZRBAPIEINJj3Lo9HyGitllczc27Eh5YYojjMFMn8yHMDMaUHE2Jqfq05D/wucwI4JGURyXt1vchyg==}
     engines: {node: '>=10'}
+
+  exifreader@4.40.3:
+    resolution: {integrity: sha512-58NvuV/lmrUoxR6Y3s5U3rwxn8ITB8xod2WgOkwew0oR5ziQj2bcJSXMbOTQPytnZi3grztHQhgZnHBSe3/P4A==}
 
   exit-x@0.2.2:
     resolution: {integrity: sha512-+I6B/IkJc1o/2tiURyz/ivu/O0nKNEArIUB5O7zBrlDVJr22SCLH3xTeEry428LvFhRzIA1g8izguxJ/gbNcVQ==}
@@ -9083,7 +9089,9 @@ snapshots:
       metro-runtime: 0.84.4
     transitivePeerDependencies:
       - '@babel/core'
+      - bufferutil
       - supports-color
+      - utf-8-validate
 
   '@react-native/normalize-colors@0.74.89': {}
 
@@ -10759,6 +10767,10 @@ snapshots:
       onetime: 5.1.2
       signal-exit: 3.0.7
       strip-final-newline: 2.0.0
+
+  exifreader@4.40.3:
+    optionalDependencies:
+      '@xmldom/xmldom': 0.9.10
 
   exit-x@0.2.2: {}
 
