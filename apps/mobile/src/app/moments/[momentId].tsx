@@ -22,12 +22,27 @@
 //   - 'pending' → originalUrl + "처리 중" overlay (사용자 대기 안내)
 //   - 'failed'  → originalUrl + "처리 실패" overlay (재시도는 Phase 후속)
 //
-// 업로드 버튼은 D4c에서 expo-image-picker 적용. 현재는 placeholder.
+// =============================================================================
+// 사진 업로드 흐름 (D4c)
+// =============================================================================
+//
+// 1. ＋사진 버튼 → ImagePicker.requestMediaLibraryPermissionsAsync() (권한 요청)
+// 2. ImagePicker.launchImageLibraryAsync() → 갤러리 modal → 사용자 선택
+// 3. asset.uri → fetch(uri).blob() (RN fetch는 file:// uri 지원)
+// 4. extension 추출 — asset.fileName → uri fallback (jpg/png/heic/webp만)
+// 5. useUploadPhoto mutation (createPresignedUploadUrl → R2 PUT → confirm)
+// 6. 성공 시 photosKeys.list 자동 invalidate → grid 자동 refresh (BullMQ 처리 대기 — pending 상태 표시)
+//
+// progress UI 단순화: mutation.isPending 동안 버튼 disabled + 상단 banner.
+// per-photo progress (XHR.upload.onprogress)는 후속 — RN fetch는 progress 미지원.
 
 import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Dimensions,
   FlatList,
   Pressable,
@@ -38,7 +53,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useMoments } from '../../lib/moments';
-import { useMomentPhotos, type PhotoListItem } from '../../lib/photos';
+import {
+  useMomentPhotos,
+  useUploadPhoto,
+  type AllowedPhotoExt,
+  type PhotoListItem,
+} from '../../lib/photos';
+
+const ALLOWED_EXTS: AllowedPhotoExt[] = ['jpg', 'jpeg', 'png', 'heic', 'webp'];
 
 const GRID_COLUMNS = 3;
 const GRID_GAP = 4;
@@ -56,8 +78,60 @@ export default function MomentDetailScreen() {
     isLoading: photosLoading,
     isError: photosError,
     refetch: refetchPhotos,
-    isRefetching,
   } = useMomentPhotos(momentId);
+  const uploadMutation = useUploadPhoto(momentId);
+
+  // pull-to-refresh 전용 state — polling refetch는 false 유지 (RefreshControl 안 보임).
+  // useQuery의 isRefetching은 polling에도 true → RefreshControl이 매번 떴다 사라져 깜빡임.
+  const [isManualRefreshing, setIsManualRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setIsManualRefreshing(true);
+    try {
+      await refetchPhotos();
+    } finally {
+      setIsManualRefreshing(false);
+    }
+  }, [refetchPhotos]);
+
+  async function pickAndUpload() {
+    try {
+      // 권한 요청 (iOS Info.plist NSPhotoLibraryUsageDescription, Android 자동)
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert('권한 필요', '설정에서 사진 접근 권한을 허용해주세요');
+        return;
+      }
+      // 갤러리 모달 — 단일 사진 선택 (다중은 후속)
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsMultipleSelection: false,
+        quality: 1,
+      });
+      if (result.canceled || result.assets.length === 0) return;
+      const asset = result.assets[0];
+
+      const ext = extractExt(asset);
+      if (!ext) {
+        Alert.alert('지원 안 되는 형식', 'jpg/jpeg/png/heic/webp만 지원합니다');
+        return;
+      }
+      // expo-file-system.uploadAsync가 fileUri 그대로 받음 — blob 변환 불필요
+      uploadMutation.mutate(
+        { fileUri: asset.uri, ext },
+        {
+          onError: (e) => {
+            const message = e instanceof Error ? e.message : '사진 업로드 실패';
+            Alert.alert('사진 업로드 실패', message);
+          },
+        },
+      );
+    } catch (e) {
+      const message = e instanceof Error ? e.message : '사진 선택 중 오류';
+      Alert.alert('오류', message);
+    }
+  }
+
+  const isUploading = uploadMutation.isPending;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -66,14 +140,28 @@ export default function MomentDetailScreen() {
           <Text style={styles.back}>← 뒤로</Text>
         </Pressable>
         <Pressable
-          onPress={() => {
-            // D4c — expo-image-picker 흐름
-          }}
-          style={({ pressed }) => [styles.uploadButton, pressed && styles.uploadButtonPressed]}
+          onPress={pickAndUpload}
+          disabled={isUploading}
+          style={({ pressed }) => [
+            styles.uploadButton,
+            pressed && styles.uploadButtonPressed,
+            isUploading && styles.uploadButtonDisabled,
+          ]}
         >
-          <Text style={styles.uploadButtonText}>＋ 사진</Text>
+          {isUploading ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text style={styles.uploadButtonText}>＋ 사진</Text>
+          )}
         </Pressable>
       </View>
+
+      {isUploading && (
+        <View style={styles.uploadingBanner}>
+          <ActivityIndicator size="small" color="#1a73e8" />
+          <Text style={styles.uploadingText}>업로드 중...</Text>
+        </View>
+      )}
 
       {moment ? (
         <View style={styles.momentInfo}>
@@ -110,8 +198,8 @@ export default function MomentDetailScreen() {
           columnWrapperStyle={styles.row}
           contentContainerStyle={styles.gridContent}
           ListEmptyComponent={<EmptyPhotos />}
-          onRefresh={() => refetchPhotos()}
-          refreshing={isRefetching}
+          onRefresh={handleRefresh}
+          refreshing={isManualRefreshing}
         />
       )}
     </SafeAreaView>
@@ -148,6 +236,25 @@ function PhotoGridItem({ photo }: { photo: PhotoListItem }) {
   );
 }
 
+/**
+ * 사진 확장자 추출. expo-image-picker asset에서:
+ *   1. fileName (iOS는 보통 박힘, Android는 종종 누락)
+ *   2. uri 마지막 . 부분 (fallback — file:///path/IMG_1234.HEIC 같은 형식)
+ * 둘 다 ALLOWED_EXTS에 없으면 null.
+ */
+function extractExt(asset: ImagePicker.ImagePickerAsset): AllowedPhotoExt | null {
+  const candidates = [
+    asset.fileName?.split('.').pop()?.toLowerCase(),
+    asset.uri.split('?')[0].split('.').pop()?.toLowerCase(),
+  ];
+  for (const c of candidates) {
+    if (c && (ALLOWED_EXTS as string[]).includes(c)) {
+      return c as AllowedPhotoExt;
+    }
+  }
+  return null;
+}
+
 function EmptyPhotos() {
   return (
     <View style={styles.empty}>
@@ -176,7 +283,17 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   uploadButtonPressed: { backgroundColor: '#155cb0' },
+  uploadButtonDisabled: { backgroundColor: '#9bb8e0' },
   uploadButtonText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  uploadingBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: '#eaf2ff',
+  },
+  uploadingText: { fontSize: 13, color: '#1a73e8', fontWeight: '500' },
   momentInfo: {
     paddingHorizontal: 16,
     paddingTop: 16,

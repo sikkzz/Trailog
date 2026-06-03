@@ -12,16 +12,20 @@
 // 참조 프론트(참조 프론트) 비교 — Web ↔ Mobile 차이
 // =============================================================================
 //
-// | 영역             | Web (참조 패턴)                    | Mobile (Trailog)              |
-// | ---------------- | ---------------------------------- | ----------------------------- |
-// | 사진 source      | `<input type="file">` + FileReader | expo-image-picker → uri       |
-// | Blob 생성        | File 객체 자체가 Blob              | fetch(uri).blob() 또는 native |
-// | upload progress  | XMLHttpRequest.upload.onprogress   | fetch에 progress X — XHR 검토 |
-// | CORS             | R2 버킷 CORS 정책 필수             | 모바일 native fetch — 무관    |
-// | timeout          | 보통 30s ~ 60s                     | RN fetch default 무한 — 명시  |
+// | 영역             | Web (참조 패턴)                          | Mobile (Trailog)                          |
+// | ---------------- | ---------------------------------------- | ----------------------------------------- |
+// | 사진 source      | `<input type="file">` + FileReader       | expo-image-picker → uri                   |
+// | 업로드 방식      | `fetch(url, { body: blob })`             | `FileSystem.uploadAsync(url, fileUri)`    |
+// | progress         | XMLHttpRequest.upload.onprogress         | RN fetch X — FileSystem upload는 progress |
+// | CORS             | R2 버킷 CORS 정책 필수                   | 모바일 native fetch — 무관                |
 //
-// → 모바일은 Blob 만들기/progress 패턴이 약간 다름. fetch progress 필요 시
-//   D4c 시점에 react-native-blob-util 또는 XMLHttpRequest 검토.
+// **왜 expo-file-system.uploadAsync**: RN fetch(`file://uri`).blob()는 native에서 종종 crash
+// 또는 빈 Blob 반환. RN/Expo 표준 패턴이 `FileSystem.uploadAsync(url, fileUri, BINARY_CONTENT)`
+// — native 측 binary 직접 PUT (메모리 효율 + crash 회피).
+
+// SDK 56: uploadAsync는 legacy 경로로 이동 (new API는 UploadTask class).
+// 안정 + 단순한 legacy uploadAsync 사용 — 미래 v2 전환 시 정정 (메모리 또는 별도 wave).
+import * as FileSystem from 'expo-file-system/legacy';
 
 import { apiRequest } from '../auth';
 
@@ -50,22 +54,24 @@ export async function createPresignedUploadUrl(
 /**
  * Step 2 — R2에 직접 PUT (백엔드 안 거침).
  *
+ * `expo-file-system.uploadAsync` 사용 — native binary 직접 PUT, RN fetch+blob crash 회피.
+ *
  * 주의:
  * - Content-Type은 presigned 발급 시 박은 값과 정확히 일치해야 함 (서명 검증).
- * - 일치 안 하면 403 (CFR2 SignatureDoesNotMatch).
+ * - fileUri는 expo-image-picker가 반환한 `file://...` 또는 `ph://...` (iOS PHAsset).
  */
 export async function uploadPhotoToR2(
   presignedUrl: string,
-  blob: Blob,
+  fileUri: string,
   contentType: string,
 ): Promise<void> {
-  const response = await fetch(presignedUrl, {
-    method: 'PUT',
+  const result = await FileSystem.uploadAsync(presignedUrl, fileUri, {
+    httpMethod: 'PUT',
+    uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
     headers: { 'Content-Type': contentType },
-    body: blob,
   });
-  if (!response.ok) {
-    throw new Error(`R2 업로드 실패: ${response.status} ${response.statusText}`);
+  if (result.status < 200 || result.status >= 300) {
+    throw new Error(`R2 업로드 실패: ${result.status} ${result.body}`);
   }
 }
 
@@ -98,10 +104,10 @@ export async function getMomentPhotos(momentId: string): Promise<GetPhotosRespon
  */
 export async function uploadPhoto(
   momentId: string,
-  blob: Blob,
+  fileUri: string,
   ext: AllowedPhotoExt,
 ): Promise<ConfirmPhotoResponse> {
   const { photoId, key, presignedUrl, contentType } = await createPresignedUploadUrl(momentId, ext);
-  await uploadPhotoToR2(presignedUrl, blob, contentType);
+  await uploadPhotoToR2(presignedUrl, fileUri, contentType);
   return confirmPhotoUpload(momentId, photoId, key);
 }
