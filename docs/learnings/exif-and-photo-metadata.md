@@ -273,3 +273,132 @@ expanded가 IFD 구조 그대로 노출 + GPS decimal 자동 — Trailog 채택.
 ## 추가 학습 기록
 
 > 같은 토픽으로 추가 학습한 내용은 아래에 날짜 헤더로 누적.
+
+---
+
+### 2026-06-03 — Phase 2 4.6 검증 중 발견한 함정 5종
+
+#### 1. POINT(0 0) 버그 — NaN/null이 PostGIS Point로 박힐 때
+
+증상: 일부 사진의 `location`이 `NULL`이어야 정상인데 `POINT(0 0)` (대서양 가나 앞바다) 박힘. 정상 사진은 정확한 좌표 박힘.
+
+Root cause 추적 흐름 — 학습 가치 ↑이라 그대로 박제:
+
+```
+1. DB SELECT (POINT(0 0) 확인)
+   ↓
+2. exif_json -> 'gps' 확인 → {"Latitude": null, "Longitude": null}
+   ↓
+3. exifreader 동작 추적
+   - Ref(N/S/E/W) 없으면 `gps.Latitude` (capitalized decimal) 못 계산 → null
+   ↓
+4. worker 코드 추적
+   - 기존: typeof lat === 'number' && typeof lng === 'number'
+   - null 통과 X (정상) but NaN은 통과 (number 타입)
+   ↓
+5. NaN → GeoJSON 직렬화 추적
+   - JSON.stringify({coordinates: [NaN, NaN]}) → '{"coordinates":[null,null]}'
+   - (JS 표준 — NaN/Infinity는 JSON에서 null로 직렬화)
+   ↓
+6. PostGIS 변환 추적
+   - TypeORM이 GeoJSON [null, null] → PostGIS Point 변환 시 0,0 fallback
+```
+
+**Fix** — `Number.isFinite()` 으로 일괄 가드:
+
+```typescript
+const location: PhotoLocation | null =
+  Number.isFinite(lat) && Number.isFinite(lng)
+    ? { type: 'Point', coordinates: [lng as number, lat as number] }
+    : null;
+```
+
+`Number.isFinite()` 한 줄이 `null` / `undefined` / `NaN` / `Infinity` 다 거름. 전역 `isFinite()`는 string 같은 거 강제 변환해서 위험 — `Number.isFinite()` 권장.
+
+#### 2. exifreader capitalized decimal과 GPS Ref의 관계
+
+exifreader `expanded: true` 모드에서:
+
+| 키                               | 의미                                     | Ref 적용 |
+| -------------------------------- | ---------------------------------------- | -------- |
+| `gps.GPSLatitude` (prefix)       | rational triplet `[deg, min, sec]` (raw) | X        |
+| `gps.GPSLatitudeRef`             | "N" / "S" 문자열                         | —        |
+| **`gps.Latitude`** (capitalized) | **decimal degree (Ref 적용 결과)**       | ✅       |
+
+→ Ref 없으면 `gps.Latitude` (사용 권장 필드)는 **null**.
+
+**검증용 인공 EXIF 박을 때 필수**:
+
+```bash
+# ❌ Ref 빠뜨림 — exifreader가 Latitude 못 만듦
+exiftool -GPSLatitude=37.5665 -GPSLongitude=126.978 photo.jpg
+
+# ✅ Ref 명시 — 완전한 EXIF
+exiftool -GPSLatitude=37.5665 -GPSLatitudeRef=N \
+         -GPSLongitude=126.978 -GPSLongitudeRef=E photo.jpg
+```
+
+#### 3. R2 객체 직접 다운로드 — picker→worker EXIF 흐름 검증 도구
+
+picker가 R2까지 EXIF를 잘 carry하는지 확인하려면 worker 진입 직전 buffer를 봐야 함. R2 객체 자체를 다운받아 exiftool로 확인:
+
+```bash
+# DB에서 original_key 가져오기
+docker exec -i trailog-postgres psql -U trailog -d trailog -t -A -c "
+SELECT original_key FROM photos WHERE id = '...';"
+
+# R2는 S3 호환 — aws cli + endpoint URL
+export AWS_ACCESS_KEY_ID=...
+export AWS_SECRET_ACCESS_KEY=...
+aws --endpoint-url https://{account}.r2.cloudflarestorage.com \
+  s3 cp s3://trailog-photos-dev/{key} /tmp/r2-check.jpg
+
+# 그 EXIF로 picker 통과 흐름 검증
+exiftool /tmp/r2-check.jpg | grep -E "GPS|DateTime"
+```
+
+→ R2 원본의 EXIF가 원본(picker 진입 전) EXIF와 다르면 **picker 단에서 변형/손실** 확정.
+
+이 패턴은 **사진뿐 아니라 모든 R2 객체 디버깅에 활용** — 썸네일 검증, MIME 확인, 원본 사이즈 측정 등.
+
+#### 4. picker EXIF 보존 — OS별 차이
+
+같은 `expo-image-picker` (SDK 56) + 같은 옵션 (`quality: 1`):
+
+| 사진 종류                          | iOS Simulator | Android Emulator                   |
+| ---------------------------------- | ------------- | ---------------------------------- |
+| 진짜 카메라 EXIF (iPhone/NIKON 등) | ✅ 보존       | ✅ 보존                            |
+| sips + exiftool 합성 EXIF          | ✅ 보존       | ❌ **GPS Ref 빈칸 + lat/lng 빈값** |
+
+원인 추정 — Android의 native MediaStore가 사진을 cache 폴더로 복사하면서 EXIF segment를 re-encode하는데, **자기가 인식하는 표준에서 벗어난 segment는 일부 버림**. sips의 JPEG encoder + exiftool tag injection이 만드는 EXIF segment는 표준 카메라 EXIF와 약간 달라서 Android가 보수적으로 처리.
+
+**production 영향**: 일반 사용자는 카메라/iPhone 사진을 업로드 — 정상. 합성 EXIF는 일반 케이스 X. 단 **EXIF 편집 도구 거친 사진**은 손실 가능성 있어 추후 옵션 검토 가치 ↑ (`exif: true` 옵션 + asset.exif 별도 전송 등).
+
+#### 5. 검증용 사진 — 진짜 카메라 EXIF 권장
+
+**sips + exiftool 합성 EXIF는 Android picker 검증에 부적합**. 검증 사진 확보 방법:
+
+- **권장**: GitHub [ianare/exif-samples](https://github.com/ianare/exif-samples) — 진짜 카메라 (NIKON/Canon/iPhone) EXIF sample 다수
+- iPhone에서 AirDrop으로 받은 원본 `.HEIC`/`.JPG` (Mac Photos 앱 import X — 변환됨)
+- 카메라 포맷 "높은 호환성" (JPG) 설정 후 직접 촬영
+
+검증 시 흐름:
+
+```bash
+# emulator로 push
+adb push real-exif.jpg /sdcard/Pictures/
+adb shell am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE \
+  -d file:///sdcard/Pictures/real-exif.jpg
+```
+
+#### 함정 5종 요약 표
+
+| 함정 | 증상                                        | 핵심 fix                           |
+| ---- | ------------------------------------------- | ---------------------------------- |
+| 1    | POINT(0 0) 잘못 박힘                        | `Number.isFinite()` guard          |
+| 2    | exiftool 박은 GPS가 exifreader에서 null     | `GPSLatitudeRef/LongitudeRef` 명시 |
+| 3    | picker→worker EXIF 흐름 끊김 추적 어려움    | R2 직접 다운로드 + exiftool        |
+| 4    | Android picker만 EXIF 손실                  | OS별 차이 인지 — production 영향 X |
+| 5    | 검증용 합성 EXIF가 production 케이스와 다름 | 진짜 카메라 EXIF로 검증            |
+
+→ 이 5종을 같이 묶어두는 이유 — **EXIF 추출 파이프라인 디버깅 시 어디서 끊겼는지 layer 별로 추적**해야 하기 때문. PostGIS 표시 → DB raw 값 → worker 로직 → R2 원본 → picker 출력 → 원본 파일 — 한 단계만 봐선 root cause 못 잡음.

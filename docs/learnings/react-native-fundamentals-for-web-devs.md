@@ -255,3 +255,85 @@ Web의 `.map`보다 — **화면 밖 item 자동 unmount → 메모리 효율**.
 ## 추가 학습 기록
 
 > 같은 토픽으로 추가 학습한 내용은 아래에 날짜 헤더로 누적.
+
+---
+
+### 2026-06-03 — Phase 2 4.6 Android Emulator 검증 중 발견
+
+#### 1. Android Emulator 사진 넣기 — adb push + media scan broadcast
+
+Drag-drop이 Google Photos에 가로채여 안 들어가는 케이스 多. **adb push로 직접 박는 게 정공법**:
+
+```bash
+# 1. 사진 push
+adb push photo.jpg /sdcard/Pictures/
+
+# 2. Media scanner 트리거 — Photos 앱이 즉시 인식
+adb shell am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE \
+  -d file:///sdcard/Pictures/photo.jpg
+```
+
+**함정**:
+
+- `/sdcard/DCIM/Camera/` 폴더 없는 emulator 있음 → `Is a directory` 에러. `/sdcard/Pictures/`가 모든 emulator에 기본 존재.
+- Media scan broadcast 안 보내면 Photos 앱이 새 사진 인식 못 함 (또는 한참 후 인식).
+- 파일명에 한글/공백 있으면 adb shell escaping 깨짐 — 영어 이름으로 cp 후 push 권장.
+
+#### 2. Android Emulator networking — `10.0.2.2` (host Mac alias)
+
+iOS Simulator는 host Mac과 network 공유 → `localhost` 그대로 OK. **Android Emulator는 자체 network namespace** — emulator의 `localhost`는 emulator 자신.
+
+| 환경                 | host Mac 접근                   |
+| -------------------- | ------------------------------- |
+| iOS Simulator        | `localhost` 또는 `127.0.0.1`    |
+| **Android Emulator** | **`10.0.2.2`** (특수 alias)     |
+| 실 디바이스 (Wifi)   | Mac LAN IP (예: `192.168.0.10`) |
+
+→ Trailog의 fetch wrapper는 `Platform.OS === 'android'` 분기로 `10.0.2.2:3000` 자동 사용. 위반 시 흔한 에러:
+
+```
+fetch failed: java.net.ConnectException: Failed to connect to localhost/127.0.0.1:3000
+```
+
+코드: [`api-client.ts` getDefaultApiUrl()](../../apps/mobile/src/lib/auth/api-client.ts).
+
+#### 3. iOS vs Android picker — EXIF 보존 정책 차이
+
+같은 `expo-image-picker` (SDK 56) + 동일 옵션:
+
+| 사진 종류                                                        | iOS     | Android                   |
+| ---------------------------------------------------------------- | ------- | ------------------------- |
+| 진짜 카메라 EXIF (iPhone/Canon/NIKON)                            | ✅ 보존 | ✅ 보존                   |
+| 사진 편집 도구 거친 비표준 EXIF (sips/exiftool/imagemagick 합성) | ✅ 보존 | ❌ 일부 손실 (GPS Ref 등) |
+
+원인 — Android native MediaStore가 사진을 cache로 복사하며 EXIF segment를 re-encode. 자기가 인식하는 표준 외 segment는 보수적으로 누락.
+
+**production 영향**: 일반 카메라 사진은 정상. 사용자가 **편집 도구 거친 사진** 업로드 시 일부 EXIF 손실 가능 — Phase 후속 옵션 검토 가치 ↑ (`exif: true` + `asset.exif` 별도 전송, 또는 `react-native-image-crop-picker` 등).
+
+자세한 진단 흐름은 [EXIF 학습 노트 2026-06-03 추가분](exif-and-photo-metadata.md) 참고.
+
+#### 4. React warning — `Can't perform a React state update on a component that hasn't mounted yet`
+
+Android에서만 자주 발생, iOS 거의 안 남. 원인:
+
+- iOS Keychain read는 매우 빠름 (마이크로초)
+- Android Keystore는 상대적으로 느림 + Fabric strict mode + emulator overhead → unmount 시점과 setState 시점 race
+
+해결 — **lifecycle 안전 패턴**:
+
+```typescript
+useEffect(() => {
+  let cancelled = false;
+  someAsyncWork().then((result) => {
+    if (cancelled) return; // ← unmount 후 setState 방지
+    // ...
+  });
+  return () => {
+    cancelled = true;
+  };
+}, []);
+```
+
+또는 setState 자체를 제거 — 분기 결정 후 즉시 `router.replace()`로 화면 전환되면 state 추적 불필요.
+
+코드 예시: [`apps/mobile/src/app/index.tsx`](../../apps/mobile/src/app/index.tsx) (setChecking state 제거 fix).

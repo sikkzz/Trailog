@@ -184,4 +184,72 @@ TypeORM 1.0+엔 PostGIS 자료형 지원 내장. 데코레이터에 `type: 'geom
 ### 2026-05-30 초안 — 기초 + Trailog 적용 컨텍스트
 
 - 공간 자료형 / SRID 4326 / GIST 인덱스 / ST\_\* 함수 / TypeORM 통합 기본
+
+---
+
+### 2026-06-03 — PostGIS 컬럼 SELECT 시 함정 + 디버깅 패턴
+
+#### 1. `geometry` 컬럼 raw SELECT는 hex (사람이 못 읽음)
+
+GUI(DataGrip) 또는 psql에서 `SELECT location FROM photos`로 그냥 조회하면:
+
+```
+0101000020E61000000000000000C05F40CAC342AD697D4240
+```
+
+이건 **EWKB(Extended Well-Known Binary) hex 인코딩** — PostGIS의 내부 표현. 사람이 읽으려면 변환 함수 사용 필수:
+
+| 함수                               | 출력                                               | 언제 쓰나                         |
+| ---------------------------------- | -------------------------------------------------- | --------------------------------- |
+| `ST_AsText(location)`              | `POINT(126.978 37.5665)` (WKT)                     | 빠른 눈 확인                      |
+| `ST_AsGeoJSON(location)`           | `{"type":"Point","coordinates":[126.978,37.5665]}` | JSON으로 봐서 [lng,lat] 순서 확인 |
+| `ST_X(location)`, `ST_Y(location)` | `126.978` / `37.5665`                              | 컬럼 분리 (필터/정렬에 활용)      |
+
+→ **검증/디버깅 SQL은 항상 변환 함수 감싸기**:
+
+```sql
+SELECT
+  id,
+  ST_AsText(location) AS location_wkt,
+  ST_AsGeoJSON(location) AS location_geojson,
+  ST_X(location) AS lng,
+  ST_Y(location) AS lat
+FROM photos
+WHERE location IS NOT NULL;
+```
+
+#### 2. `POINT(0 0)` 함정 — null GeoJSON이 PostGIS Point가 될 때
+
+TypeORM이 GeoJSON 객체를 PostGIS geometry로 변환 시 `coordinates: [null, null]` 같은 잘못된 입력이 들어오면 **에러 throw 대신 `POINT(0 0)` fallback**으로 박힐 수 있음. (0, 0)은 대서양 가나 앞바다라 실제 데이터일 가능성 거의 X — 발견 시 source 추적:
+
+1. 값 추적: `SELECT ST_AsText(location) WHERE ...`
+2. application 코드 추적: GeoJSON 만드는 부분에 null/NaN guard 있나 — `Number.isFinite()` 권장
+3. JSON 직렬화 추적: JS의 `NaN`/`Infinity`는 `JSON.stringify` 시 `null`로 변환됨
+
+자세한 디버깅 흐름은 [EXIF 학습 노트 2026-06-03 추가분](exif-and-photo-metadata.md) 참고.
+
+#### 3. PostGIS 디버깅 자주 쓰는 패턴
+
+```sql
+-- 모든 사진 영역 (min/max bbox)
+SELECT ST_AsText(ST_Extent(location)) FROM photos;
+
+-- 특정 위치 반경 1km 안 사진
+SELECT id, ST_Distance(location::geography, ST_MakePoint(126.978, 37.5665)::geography) AS dist_m
+FROM photos
+WHERE ST_DWithin(location::geography, ST_MakePoint(126.978, 37.5665)::geography, 1000)
+ORDER BY dist_m;
+
+-- (0,0)에 잘못 박힌 사진 찾기
+SELECT id, created_at FROM photos WHERE ST_X(location) = 0 AND ST_Y(location) = 0;
+
+-- 두 사진 사이 거리 (m)
+SELECT ST_Distance(
+  (SELECT location::geography FROM photos WHERE id = 'A'),
+  (SELECT location::geography FROM photos WHERE id = 'B')
+);
+```
+
+→ raw SELECT만 보고 "버그 없다" 판단 X. 항상 `ST_*` 변환으로 사람 읽기 가능한 형식 확인.
+
 - Phase 2 4.5 (EXIF) / 4.7 (지도) 진입 시 실제 코드와 함께 추가 학습 노트 누적 예정 (`ST_ClusterDBSCAN` 등)
