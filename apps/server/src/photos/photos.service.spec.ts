@@ -192,6 +192,8 @@ describe('PhotosService', () => {
             large: `user/${mockUserId}/moments/${mockMomentId}/thumbs/p1_large.webp`,
           },
           processingStatus: 'done',
+          takenAt: new Date('2024-03-15T14:30:00Z'),
+          location: { type: 'Point', coordinates: [126.978, 37.5665] }, // GeoJSON [lng, lat]
           createdAt: new Date('2026-05-31T12:00:00Z'),
         },
         {
@@ -201,6 +203,8 @@ describe('PhotosService', () => {
           originalKey: `user/${mockUserId}/moments/${mockMomentId}/p2.jpg`,
           thumbnailKeys: null,
           processingStatus: 'pending',
+          takenAt: null,
+          location: null,
           createdAt: new Date('2026-05-31T12:01:00Z'),
         },
       ] as Photo[];
@@ -211,7 +215,7 @@ describe('PhotosService', () => {
       expect(result.type).toBe(RestResponseType.SUCCESS);
       expect(result.data?.photos).toHaveLength(2);
 
-      // p1: 처리 완료 — thumbnailUrls 3 size 박힘 + 'done'
+      // p1: 처리 완료 — thumbnailUrls 3 size 박힘 + 'done' + EXIF
       expect(result.data?.photos[0].originalUrl).toBe('https://r2.../get?sig=...');
       expect(result.data?.photos[0].thumbnailUrls).toEqual({
         small: 'https://r2.../get?sig=...',
@@ -219,10 +223,15 @@ describe('PhotosService', () => {
         large: 'https://r2.../get?sig=...',
       });
       expect(result.data?.photos[0].processingStatus).toBe('done');
+      // EXIF: takenAt ISO string + GeoJSON [lng,lat] → DTO {latitude, longitude} 변환 검증
+      expect(result.data?.photos[0].takenAt).toBe('2024-03-15T14:30:00.000Z');
+      expect(result.data?.photos[0].location).toEqual({ latitude: 37.5665, longitude: 126.978 });
 
-      // p2: 처리 미완료 — thumbnailUrls null + 'pending'
+      // p2: 처리 미완료 + EXIF 없음 — 모두 null
       expect(result.data?.photos[1].thumbnailUrls).toBeNull();
       expect(result.data?.photos[1].processingStatus).toBe('pending');
+      expect(result.data?.photos[1].takenAt).toBeNull();
+      expect(result.data?.photos[1].location).toBeNull();
 
       // 호출 횟수: p1 (original 1 + thumbs 3) + p2 (original 1) = 5
       expect(r2Service.createPresignedGetUrl).toHaveBeenCalledTimes(5);

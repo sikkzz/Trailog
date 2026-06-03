@@ -8,12 +8,29 @@
 // - originalUrl: 원본 presigned GET URL (1시간 만료)
 // - thumbnailUrls: 3 size 썸네일 presigned GET URL (Phase 2 4.4). 처리 미완료/실패 시 null
 // - processingStatus: 'pending'/'done'/'failed' — 모바일 UI 분기 결정
+// - takenAt: EXIF DateTimeOriginal (Phase 2 4.5). EXIF 없는 사진은 null
+// - location: EXIF GPS {latitude, longitude} (Phase 2 4.5). GPS 없는 사진은 null
+//   ↑ DB는 GeoJSON [lng,lat]이지만 API는 모바일 친화 {latitude, longitude} (react-native-maps prop 직매칭)
 //
 // Phase 후속: CDN(4.7+) 도입 시 URL 정정.
 
 import { ApiProperty } from '@nestjs/swagger';
 
 import type { PhotoProcessingStatus } from '../photo-processing.types';
+
+export class PhotoLocationDto {
+  @ApiProperty({
+    example: 37.5665,
+    description: '위도 (WGS84) — 모바일 지도 핀에 직접 사용',
+  })
+  latitude!: number;
+
+  @ApiProperty({
+    example: 126.978,
+    description: '경도 (WGS84)',
+  })
+  longitude!: number;
+}
 
 export class PhotoThumbnailUrlsDto {
   @ApiProperty({
@@ -64,6 +81,20 @@ export class PhotoListItemDto {
     description: 'BullMQ 처리 상태 — pending/done/failed. 모바일이 UI 분기 결정',
   })
   processingStatus!: PhotoProcessingStatus;
+
+  @ApiProperty({
+    example: '2024-03-15T14:30:00.000Z',
+    nullable: true,
+    description: 'EXIF DateTimeOriginal (촬영 시각). EXIF 없는 사진/스크린샷은 null',
+  })
+  takenAt!: string | null;
+
+  @ApiProperty({
+    type: PhotoLocationDto,
+    nullable: true,
+    description: 'EXIF GPS 좌표 (WGS84). GPS 정보 없는 사진은 null',
+  })
+  location!: PhotoLocationDto | null;
 
   @ApiProperty({ example: '2026-05-31T12:00:00.000Z' })
   createdAt!: string;

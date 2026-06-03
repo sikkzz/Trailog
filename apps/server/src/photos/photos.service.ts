@@ -30,10 +30,15 @@ import { ConfirmPhotoRequestDto, ConfirmPhotoResponseDto } from './dtos/confirm-
 import {
   GetPhotosResponseDto,
   PhotoListItemDto,
+  PhotoLocationDto,
   PhotoThumbnailUrlsDto,
 } from './dtos/get-photos.dto';
 import { Photo } from './photo.entity';
-import type { PhotoProcessingJobData, PhotoThumbnailKeys } from './photo-processing.types';
+import type {
+  PhotoLocation,
+  PhotoProcessingJobData,
+  PhotoThumbnailKeys,
+} from './photo-processing.types';
 import { PHOTO_PROCESSING_QUEUE } from './photos.constants';
 
 const EXT_TO_MIME: Record<string, string> = {
@@ -168,6 +173,8 @@ export class PhotosService {
    * - originalUrl: 항상 발급
    * - thumbnailUrls: thumbnailKeys 있으면 3 size 병렬 발급, 없으면 null
    * - processingStatus: 모바일 UI 분기용
+   * - takenAt: EXIF 촬영 시각 ISO string (null 가능)
+   * - location: GeoJSON [lng,lat] → DTO {latitude, longitude} (null 가능)
    */
   private async toListItemDto(photo: Photo): Promise<PhotoListItemDto> {
     const originalUrl = await this.r2Service.createPresignedGetUrl(photo.originalKey);
@@ -181,6 +188,8 @@ export class PhotosService {
       originalUrl,
       thumbnailUrls,
       processingStatus: photo.processingStatus,
+      takenAt: photo.takenAt?.toISOString() ?? null,
+      location: photo.location ? this.toLocationDto(photo.location) : null,
       createdAt: photo.createdAt.toISOString(),
     };
   }
@@ -193,5 +202,11 @@ export class PhotosService {
       this.r2Service.createPresignedGetUrl(keys.large),
     ]);
     return { small, medium, large };
+  }
+
+  /** GeoJSON Point → API 친화 {latitude, longitude} (모바일 지도 lib prop 직매칭). */
+  private toLocationDto(location: PhotoLocation): PhotoLocationDto {
+    const [longitude, latitude] = location.coordinates;
+    return { latitude, longitude };
   }
 }
