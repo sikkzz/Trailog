@@ -155,6 +155,8 @@
 - [ ] **기존 lib 정정** — `apps/mobile/src/lib/photos/` + `auth/` interface → Schema 변환 + parse 박기
 - [ ] 학습 노트: Expo Router 패턴, expo-image-picker, React Query 사용, Zod parse 패턴 + ZodError UX
 
+> **UI/UX 폴리시 정책 (2026-06-03 박제)** — 4.6 진행 중 발견된 UX 디테일(raw input, 색상, spacing, animation 등)은 **즉시 정정 X**. 코드 주석 + 4.8 항목 누적 박제 → Phase 2 4.7 종료 후 별도 wave에서 일괄 정정 + 학습. 메모리 `ui-ux-polish-wave-revisit` 참조.
+
 ### 4.7 지도 표시 (1주)
 
 - [ ] 지도 라이브러리 선택 (Q6: react-native-maps vs MapLibre)
@@ -164,6 +166,30 @@
 - [ ] pin 클릭 → 사진 상세 또는 dad popup
 - [ ] 사용자 위치 동의 + 권한 (expo-location)
 - [ ] 학습 노트: 지도 라이브러리 비교, cluster 알고리즘, PostGIS 공간 쿼리
+
+### 4.8 UI/UX 폴리시 + 고도화 학습 (별도 wave, 본인 결정 2026-06-03)
+
+> **트리거**: Phase 2 4.7 (지도) 종료 후 진입. Phase 3 (공유) 진입 전엔 반드시 1번 수행.
+> **사유**: 매 sub-phase마다 디자인 디테일까지 폴리시하면 기능 진행 속도 ↓. 핵심 기능 모두 동작 후 본인이 직접 써보면서 발견된 UX 문제 일괄 정정. 동시에 UI/UX 고도화 학습 영역 진입.
+
+**누적 폴리시 항목 (4.6 D3 기준)**:
+
+- [ ] `moments/create.tsx` 시작/종료 raw ISO input → DatePicker (`@react-native-community/datetimepicker`)
+- [ ] 색상/spacing/typography design system 정착 (현재 각 화면 별도 hardcode)
+- [ ] Login/Signup/Moments/Create 전체 시각 디자인 일관성
+- [ ] 빈 상태 / 에러 / loading UI 통일 (재사용 컴포넌트화)
+- (이후 wave 진행 중 발견 시 누적 박제)
+
+**학습 노트 (예상)**:
+
+- RN 디자인 system 패턴 비교 (Restyle / Tamagui / 자체 theme)
+- NativeWind 도입 (Tailwind RN 적용 — 참조 Tailwind 패턴 정복)
+- 접근성 (`accessibilityLabel/Role/Hint`) 깊이
+- Reanimated 3 기초 + Gesture Handler
+- 다크모드 + theming 패턴
+- iOS/Android Human Interface Guidelines 핵심
+
+**작업 기간**: 1주 잠정 (실측 후 조정)
 
 ## 5. 비범위 (Out of Scope)
 
