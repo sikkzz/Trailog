@@ -1,4 +1,4 @@
-// Photos API 클라이언트 — Phase 2 4.3 D5.
+// Photos API 클라이언트 — Phase 2 4.3 D5 도입, 4.6 D4 Schema.parse 정정 (ADR-0008).
 //
 // 사진 업로드 흐름 (백엔드 안 거치고 R2 직접 PUT):
 //
@@ -21,28 +21,30 @@
 // | timeout          | 보통 30s ~ 60s                     | RN fetch default 무한 — 명시  |
 //
 // → 모바일은 Blob 만들기/progress 패턴이 약간 다름. fetch progress 필요 시
-//   Phase 4.6에 react-native-blob-util 또는 XMLHttpRequest 검토.
-//
-// =============================================================================
+//   D4c 시점에 react-native-blob-util 또는 XMLHttpRequest 검토.
 
 import { apiRequest } from '../auth';
 
-import type {
-  AllowedPhotoExt,
-  ConfirmPhotoResponse,
-  CreateUploadUrlResponse,
-  GetPhotosResponse,
-} from './photos-types';
+import {
+  ConfirmPhotoResponseSchema,
+  CreateUploadUrlResponseSchema,
+  GetPhotosResponseSchema,
+  type AllowedPhotoExt,
+  type ConfirmPhotoResponse,
+  type CreateUploadUrlResponse,
+  type GetPhotosResponse,
+} from './photos-schemas';
 
 /** Step 1 — 백엔드에 presigned PUT URL 요청 */
 export async function createPresignedUploadUrl(
   momentId: string,
   ext: AllowedPhotoExt,
 ): Promise<CreateUploadUrlResponse> {
-  return apiRequest<CreateUploadUrlResponse>(`/moments/${momentId}/photos/upload-url`, {
+  const data = await apiRequest(`/moments/${momentId}/photos/upload-url`, {
     method: 'POST',
     body: { ext },
   });
+  return CreateUploadUrlResponseSchema.parse(data);
 }
 
 /**
@@ -51,7 +53,6 @@ export async function createPresignedUploadUrl(
  * 주의:
  * - Content-Type은 presigned 발급 시 박은 값과 정확히 일치해야 함 (서명 검증).
  * - 일치 안 하면 403 (CFR2 SignatureDoesNotMatch).
- * - blob: Phase 2 4.6에서 expo-image-picker uri → blob 변환 패턴 결정.
  */
 export async function uploadPhotoToR2(
   presignedUrl: string,
@@ -74,23 +75,21 @@ export async function confirmPhotoUpload(
   photoId: string,
   key: string,
 ): Promise<ConfirmPhotoResponse> {
-  return apiRequest<ConfirmPhotoResponse>(`/moments/${momentId}/photos`, {
+  const data = await apiRequest(`/moments/${momentId}/photos`, {
     method: 'POST',
     body: { photoId, key },
   });
+  return ConfirmPhotoResponseSchema.parse(data);
 }
 
 /** Moment의 사진 리스트 (presigned GET URL 동봉, 1시간 만료) */
 export async function getMomentPhotos(momentId: string): Promise<GetPhotosResponse> {
-  return apiRequest<GetPhotosResponse>(`/moments/${momentId}/photos`);
+  const data = await apiRequest(`/moments/${momentId}/photos`);
+  return GetPhotosResponseSchema.parse(data);
 }
 
 /**
  * High-level 헬퍼 — 사진 업로드 전체 흐름.
- *
- * 사용 (Phase 2 4.6 화면에서):
- *   const photo = await uploadPhoto(momentId, blob, 'jpg');
- *   // photo: { id, momentId, originalKey, createdAt }
  *
  * 학습 포인트 — 순차 처리 이유:
  * - presigned URL 발급 후 PUT 가능 (의존성)

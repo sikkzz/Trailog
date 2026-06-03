@@ -1,8 +1,4 @@
-// photos lib barrel export — 다른 모듈은 항상 이 index에서 import.
-//
-// 사용:
-//   import { uploadPhoto, getMomentPhotos } from '@/lib/photos';
-//   import type { PhotoListItem } from '@/lib/photos';
+// photos lib barrel export.
 
 export {
   confirmPhotoUpload,
@@ -12,10 +8,30 @@ export {
   uploadPhotoToR2,
 } from './photos-api';
 
+export { photosKeys, useMomentPhotos, useUploadPhoto } from './photos-queries';
+
+export {
+  AllowedPhotoExtSchema,
+  ConfirmPhotoRequestSchema,
+  ConfirmPhotoResponseSchema,
+  CreateUploadUrlRequestSchema,
+  CreateUploadUrlResponseSchema,
+  GetPhotosResponseSchema,
+  PhotoListItemSchema,
+  PhotoLocationSchema,
+  PhotoProcessingStatusSchema,
+  PhotoThumbnailUrlsSchema,
+} from './photos-schemas';
+
 export type {
   AllowedPhotoExt,
+  ConfirmPhotoRequest,
   ConfirmPhotoResponse,
+  CreateUploadUrlRequest,
   CreateUploadUrlResponse,
   GetPhotosResponse,
   PhotoListItem,
-} from './photos-types';
+  PhotoLocation,
+  PhotoProcessingStatus,
+  PhotoThumbnailUrls,
+} from './photos-schemas';
