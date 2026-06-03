@@ -166,6 +166,7 @@
 - [ ] pin 클릭 → 사진 상세 또는 dad popup
 - [ ] 사용자 위치 동의 + 권한 (expo-location)
 - [ ] 학습 노트: 지도 라이브러리 비교, cluster 알고리즘, PostGIS 공간 쿼리
+- [ ] (추가, 4.6 D4d에서 박제) **사진 상세 위치 표시 개선** — 현재 raw lat/lng(`63.5314, -19.5112`) → 미니맵 + reverse geocoding(주소 "아이슬란드 남부 Eyvindarhólar"). 지도 라이브러리 + Geocoding API(expo-location reverseGeocodeAsync 또는 OSM Nominatim) 같이 검토.
 
 ### 4.8 UI/UX 폴리시 + 고도화 학습 (별도 wave, 본인 결정 2026-06-03)
 

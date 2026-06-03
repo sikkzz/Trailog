@@ -193,7 +193,7 @@ export default function MomentDetailScreen() {
         <FlatList
           data={photosData?.photos ?? []}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => <PhotoGridItem photo={item} />}
+          renderItem={({ item }) => <PhotoGridItem photo={item} momentId={momentId} />}
           numColumns={GRID_COLUMNS}
           columnWrapperStyle={styles.row}
           contentContainerStyle={styles.gridContent}
@@ -211,14 +211,21 @@ export default function MomentDetailScreen() {
  * processingStatus 분기:
  *   - 'done' → thumbnailUrls.small (없으면 originalUrl)
  *   - 'pending'/'failed' → originalUrl + overlay
+ *
+ * 탭 시 photos/[photoId] 상세 진입 — momentId를 query param으로 전달
+ * (상세 화면이 리스트 query 캐시에서 photo 객체 찾기 위해).
  */
-function PhotoGridItem({ photo }: { photo: PhotoListItem }) {
+function PhotoGridItem({ photo, momentId }: { photo: PhotoListItem; momentId: string }) {
+  const router = useRouter();
   // 썸네일이 있으면 small 우선, 없으면 원본 (큰 이미지 — 트래픽 ↑ but 표시 가능)
   const imageUri = photo.thumbnailUrls?.small ?? photo.originalUrl;
   const showOverlay = photo.processingStatus !== 'done';
 
   return (
-    <Pressable style={styles.gridItem}>
+    <Pressable
+      style={styles.gridItem}
+      onPress={() => router.push(`/photos/${photo.id}?momentId=${momentId}` as never)}
+    >
       <Image
         source={{ uri: imageUri }}
         style={styles.gridImage}
