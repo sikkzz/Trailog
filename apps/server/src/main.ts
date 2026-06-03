@@ -7,6 +7,15 @@ import { AppModule } from './app.module';
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
 
+  // CORS — Expo web dev (http://localhost:8081) + 미래 web 출시 가능성 대응.
+  // 모바일 native(iOS/Android)는 CORS 적용 X — 무영향.
+  // 운영 web 출시 시 origin 명시 권장 (현재는 dev 편의 위해 전체 허용).
+  app.enableCors({
+    origin: true,
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-client-platform'],
+  });
+
   // 모든 endpoint에 입력 검증 자동 적용.
   // - whitelist: DTO에 없는 필드는 제거 (보안 — 의도치 않은 필드 처리 방지)
   // - forbidNonWhitelisted: DTO에 없는 필드 있으면 400 (디버깅 친화)
