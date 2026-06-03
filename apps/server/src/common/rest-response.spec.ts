@@ -150,4 +150,52 @@ describe('RestResponse', () => {
       });
     });
   });
+
+  // Phase 2 4.6 D2 검증 중 발견된 회귀 방지 — NestJS가 응답을 JSON.stringify할 때
+  // toJSON()이 없으면 private field가 그대로 `_type/_code/_data...` 노출되어
+  // 모바일 client의 `isRestResponse` 가드(키 검사) 실패 → unwrap 안 됨.
+  // 4.1~4.5 동안 모바일이 호출 안 해서 미발견, 4.6 회원가입 검증 시점에 처음 드러남.
+  describe('JSON 직렬화 (toJSON)', () => {
+    it('JSON.stringify 결과에 underscore prefix가 없고 type/code/data/message/status/method 키만 있다', () => {
+      const res = new RestResponse<{ id: number }>().success({ id: 42 });
+
+      const serialized = JSON.parse(JSON.stringify(res)) as Record<string, unknown>;
+
+      expect(Object.keys(serialized).sort()).toEqual(
+        ['code', 'data', 'message', 'method', 'status', 'type'].sort(),
+      );
+      // underscore prefix 없음 명시 검증
+      expect(serialized).not.toHaveProperty('_type');
+      expect(serialized).not.toHaveProperty('_code');
+      expect(serialized).not.toHaveProperty('_data');
+    });
+
+    it('JSON 직렬화 결과가 build()와 동일하다', () => {
+      const res = new RestResponse<{ id: number }>()
+        .success({ id: 1 }, { message: 'ok', code: '001' })
+        .setStatus(HttpStatus.CREATED)
+        .setMethod(RestResponseMethod.LOG_OUT);
+
+      expect(JSON.parse(JSON.stringify(res))).toEqual(res.build());
+    });
+
+    it('error 응답도 JSON 직렬화 시 일관된 키 구조 (underscore 없음)', () => {
+      const res = new RestResponse().error('실패 메시지', {
+        code: RestResponseCode.UNAUTHORIZED,
+        status: HttpStatus.UNAUTHORIZED,
+        method: RestResponseMethod.LOGIN_REQUIRED,
+      });
+
+      const serialized = JSON.parse(JSON.stringify(res)) as Record<string, unknown>;
+
+      expect(serialized).toEqual({
+        type: RestResponseType.ERROR,
+        code: RestResponseCode.UNAUTHORIZED,
+        data: null,
+        message: '실패 메시지',
+        status: HttpStatus.UNAUTHORIZED,
+        method: RestResponseMethod.LOGIN_REQUIRED,
+      });
+    });
+  });
 });

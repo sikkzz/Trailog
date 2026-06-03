@@ -116,6 +116,15 @@ export class RestResponse<T = unknown> {
     };
   }
 
+  /**
+   * JSON.stringify가 자동 호출 — NestJS 응답 직렬화 시점.
+   * 없으면 private field가 `_type/_code/_data...` 그대로 노출됨 (모바일 client의 `isRestResponse`
+   * 가드 실패 → 응답 unwrap 안 됨). Phase 2 4.6 D2 모바일 통합 검증 중 발견.
+   */
+  toJSON(): RestResponseOptions<T> {
+    return this.build();
+  }
+
   /** 성공 응답 — data 박제 후 옵션으로 message/code/status/method 설정 */
   success(data: T, option: RestResponseSuccessOption = {}): this {
     this._type = RestResponseType.SUCCESS;
