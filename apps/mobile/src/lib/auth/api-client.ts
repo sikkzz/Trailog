@@ -58,6 +58,8 @@
 //   [재시도 요청] → 또 401 → _retried가 true이므로 즉시 fail (무한 루프 방어)
 //   [요청] → refresh도 실패 → token clear → onUnauthorized 콜백
 
+import { Platform } from 'react-native';
+
 import { authStorage } from './auth-storage';
 import {
   ApiError,
@@ -68,8 +70,20 @@ import {
 } from './auth-types';
 
 // EXPO_PUBLIC_* 환경변수는 build time inline됨 (Expo 표준, Next.js의 NEXT_PUBLIC_과 동일).
-// 로컬 dev fallback: localhost.
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
+//
+// Dev fallback platform별 분기:
+// - iOS Simulator: host Mac과 network 공유 → `localhost` OK
+// - **Android Emulator: 자체 network namespace** → host Mac은 `10.0.2.2` 특수 alias
+// - 실 디바이스 (Wifi): EXPO_PUBLIC_API_URL에 Mac LAN IP 박기 (예: http://192.168.0.10:3000)
+//
+// 흔한 함정 — Android Emulator에서 localhost 호출 시 emulator 자체를 가리켜
+// "fetch failed: java.net.ConnectException: Failed to connect to localhost/127.0.0.1:3000" 에러.
+function getDefaultApiUrl(): string {
+  if (Platform.OS === 'android') return 'http://10.0.2.2:3000';
+  return 'http://localhost:3000';
+}
+
+const API_URL = process.env.EXPO_PUBLIC_API_URL ?? getDefaultApiUrl();
 
 // Refresh endpoint path — `isRefreshEndpoint()`와 main fetch 둘 다에서 참조.
 const REFRESH_PATH = '/auth/refresh';

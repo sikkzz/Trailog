@@ -29,16 +29,17 @@
 // D3 이후 안정화되면 cast 제거.
 
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { authStorage } from '../lib/auth';
 
 export default function HomeScreen() {
   const router = useRouter();
-  const [checking, setChecking] = useState(true);
 
   useEffect(() => {
+    // checking state 별도 추적 X — replace 호출되면 화면 자동 전환되므로 불필요.
+    // 이전엔 setChecking(false)가 unmount 시점과 race → Android에서 react warning 발생.
     let cancelled = false;
     authStorage
       .getTokens()
@@ -49,19 +50,18 @@ export default function HomeScreen() {
       .catch(() => {
         if (cancelled) return;
         router.replace('/(auth)/login' as never);
-      })
-      .finally(() => {
-        if (!cancelled) setChecking(false);
       });
     return () => {
       cancelled = true;
     };
-  }, [router]);
+    // router는 expo-router의 stable reference — deps 누락 안전.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // 분기 결정 전 짧은 로딩 (대부분 ms 단위)
+  // 분기 결정 전 짧은 로딩 (대부분 ms 단위 — router.replace 후 화면 자동 전환).
   return (
     <View style={styles.container}>
-      {checking && <ActivityIndicator size="large" color="#1a73e8" />}
+      <ActivityIndicator size="large" color="#1a73e8" />
     </View>
   );
 }
