@@ -1,53 +1,71 @@
-// Phase 2 4.6 D1 — 임시 검증 화면. D2에서 인증 분기 redirect로 대체.
-// 각 라우트 진입 버튼으로 라우트 골격 + Expo Router 동작 검증.
+// 진입 라우트 — 인증 상태 분기 redirect.
 //
-// `as Href` cast 사유: typed routes는 typegen 결과 (`.expo/types/router.d.ts`)에 의존하고,
-// typegen은 dev server 첫 부팅 시 자동 생성. D1 초기엔 typegen 없어서 모든 Link href type fail.
-// 검증용 임시 화면이라 cast로 우회. D2/D3에서 typedRoutes 다시 활성 + typegen 정상화 시 제거.
+// 흐름:
+//   1. authStorage.getTokens()로 secure-store 확인 (Phase 2 4.1에 박힘)
+//   2. tokens 있음 → /(tabs)/moments (메인)
+//   3. tokens 없음 → /(auth)/login
+//
+// =============================================================================
+// 참조 (Next.js Web) 비교
+// =============================================================================
+//
+// - 회사: middleware.ts에서 cookie 검사 후 redirect (SSR + middleware)
+// - Trailog (RN): expo-secure-store 비동기 read + useEffect → router.replace
+//   (모바일은 middleware 자체 X — 항상 클라 진입 후 분기)
+//
+// =============================================================================
+// RN 기본 문법 해설 (이 화면에서 새로 등장)
+// =============================================================================
+//
+// - `<ActivityIndicator>` = web의 spinner 라이브러리 대응. RN built-in.
+//   `size="large"` / `color="..."` 만. 단순 로딩 표시.
+// - 자세한 RN 컴포넌트 비교는 login.tsx 헤더 + D5 학습 노트 참고.
+//
+// =============================================================================
+// `as never` cast 사유
+// =============================================================================
+//
+// typed routes typegen이 dev server 첫 부팅 시 생성됨 — D1 시점엔 type 부정확.
+// D3 이후 안정화되면 cast 제거.
 
-import { Link, type Href } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
+
+import { authStorage } from '../lib/auth';
 
 export default function HomeScreen() {
-  return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        <Text style={styles.title}>Trailog</Text>
-        <Text style={styles.subtitle}>a trail of your moments</Text>
+  const router = useRouter();
+  const [checking, setChecking] = useState(true);
 
-        <View style={styles.routeList}>
-          <Text style={styles.section}>D1 라우트 검증</Text>
-          <Link href={'/(auth)/login' as Href} style={styles.link}>
-            → (auth)/login
-          </Link>
-          <Link href={'/(auth)/signup' as Href} style={styles.link}>
-            → (auth)/signup
-          </Link>
-          <Link href={'/(tabs)/moments' as Href} style={styles.link}>
-            → (tabs)/moments
-          </Link>
-          <Link href={'/(tabs)/map' as Href} style={styles.link}>
-            → (tabs)/map
-          </Link>
-          <Link href={'/moments/test-moment-id' as Href} style={styles.link}>
-            → moments/[momentId]
-          </Link>
-          <Link href={'/photos/test-photo-id' as Href} style={styles.link}>
-            → photos/[photoId]
-          </Link>
-        </View>
-      </View>
-    </SafeAreaView>
+  useEffect(() => {
+    let cancelled = false;
+    authStorage
+      .getTokens()
+      .then((tokens) => {
+        if (cancelled) return;
+        router.replace((tokens ? '/(tabs)/moments' : '/(auth)/login') as never);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        router.replace('/(auth)/login' as never);
+      })
+      .finally(() => {
+        if (!cancelled) setChecking(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
+
+  // 분기 결정 전 짧은 로딩 (대부분 ms 단위)
+  return (
+    <View style={styles.container}>
+      {checking && <ActivityIndicator size="large" color="#1a73e8" />}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  content: { flex: 1, padding: 24 },
-  title: { fontSize: 40, fontWeight: '700', color: '#1a1a1a', marginTop: 32 },
-  subtitle: { fontSize: 14, color: '#666', marginBottom: 32, fontStyle: 'italic' },
-  routeList: { gap: 12 },
-  section: { fontSize: 12, color: '#999', marginBottom: 8, textTransform: 'uppercase' },
-  link: { fontSize: 16, color: '#1a73e8', paddingVertical: 8 },
+  container: { flex: 1, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
 });

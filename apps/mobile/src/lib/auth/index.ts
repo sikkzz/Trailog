@@ -18,5 +18,24 @@ export type {
   RestResponse,
   RestResponseMethod,
   RestResponseType,
-  TokenPair,
 } from './auth-types';
+
+// ADR-0008 Zod schemas + types (Phase 2 4.6 D2 도입).
+export {
+  RefreshTokenRequestSchema,
+  RefreshTokenResponseSchema,
+  SignInRequestSchema,
+  SignInResponseSchema,
+  SignUpRequestSchema,
+  SignUpResponseSchema,
+  TokenPairSchema,
+} from './auth-schemas';
+export type {
+  RefreshTokenRequest,
+  RefreshTokenResponse,
+  SignInRequest,
+  SignInResponse,
+  SignUpRequest,
+  SignUpResponse,
+  TokenPair,
+} from './auth-schemas';

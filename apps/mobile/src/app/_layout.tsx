@@ -8,15 +8,29 @@
 //   - moments/[momentId] — Moment 상세
 //   - photos/[photoId] — 사진 상세
 //
-// 인증 분기 redirect는 D2 (auth 화면 구현 시) 도입.
+// 인증 layer 박제:
+//   1. 진입 분기 (index.tsx useEffect) — 첫 진입 시 token 있으면 tabs, 없으면 auth
+//   2. **API 401 자동 redirect** (setOnUnauthorized) — refresh 실패 또는 method=LOG_OUT/LOGIN_REQUIRED 시
+//      자동 로그인 화면으로. Phase 2 4.1 api-client에 인프라 박혀있었으나 callback 미등록 상태였음.
+//      D3 진입 (useMoments 호출) 전에 박는 게 필수.
 
 import { QueryClientProvider } from '@tanstack/react-query';
-import { Stack } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
 
+import { setOnUnauthorized } from '../lib/auth';
 import { queryClient } from '../lib/query-client';
 
 export default function RootLayout() {
+  // API 401 + refresh 실패 시 / method=LOG_OUT 시 자동 로그인 redirect.
+  // api-client는 authStorage.clear()까지 처리 — root는 navigation만 책임.
+  useEffect(() => {
+    setOnUnauthorized(() => {
+      router.replace('/(auth)/login' as never);
+    });
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <StatusBar style="auto" />

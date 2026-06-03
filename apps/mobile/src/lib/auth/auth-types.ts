@@ -10,10 +10,8 @@
 // - interface 대신 class → instanceof 체크 가능 (참조 AuthGuard에서 `error instanceof APIError`)
 // - 단순 Error 던지면 status/body 못 받음
 
-export interface TokenPair {
-  accessToken: string;
-  refreshToken: string;
-}
+// TokenPair는 ADR-0008 적용으로 auth-schemas.ts로 이동 (z.infer 단일 출처).
+// 다른 모듈은 `import type { TokenPair } from './auth-schemas'` 또는 barrel export 사용.
 
 // 백엔드 RestResponse (apps/server/src/common/rest-response.ts)와 sync.
 // 모든 백엔드 응답은 이 wrapper 구조.
@@ -51,6 +49,9 @@ export class ApiError extends Error {
     this.method = method;
   }
 }
+
+// TokenPair re-export — 기존 import 사이트 호환 (auth-storage.ts 등)
+export type { TokenPair } from './auth-schemas';
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
