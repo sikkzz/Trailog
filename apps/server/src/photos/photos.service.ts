@@ -27,6 +27,7 @@ import {
   CreateUploadUrlResponseDto,
 } from './dtos/create-upload-url.dto';
 import { ConfirmPhotoRequestDto, ConfirmPhotoResponseDto } from './dtos/confirm-photo.dto';
+import { GetMapPhotosResponseDto } from './dtos/get-map-photos.dto';
 import {
   GetPhotosResponseDto,
   PhotoListItemDto,
@@ -161,6 +162,42 @@ export class PhotosService {
 
     const items = await Promise.all(photos.map((photo) => this.toListItemDto(photo)));
     return new RestResponse<GetPhotosResponseDto>().success({ photos: items });
+  }
+
+  /**
+   * 지도 viewport 안 본인 사진 — PostGIS bbox 쿼리.
+   *
+   * 필터:
+   * - 본인 사진만 (userId)
+   * - processingStatus='done' — 썸네일 + EXIF 처리 완료된 것만 (pin 표시 가치 ↑)
+   * - bbox: `ST_Within(location, ST_MakeEnvelope(minLng, minLat, maxLng, maxLat, 4326))`
+   *   - SRID 4326 = WGS84 (Photo entity location 컬럼과 동일)
+   *   - GIST 인덱스 자동 활용 (Photo entity @Index({spatial:true}))
+   *   - location IS NULL은 ST_Within이 자동으로 거름
+   * - takenAt DESC — 최근 촬영 순 (같은 viewport에 사진 많으면 최근 것 우선)
+   *
+   * **Phase 후속**:
+   * - lite response (id/lat/lng/thumbnailUrl small만) — 사진 1000+ viewport 시 payload 절약
+   * - cluster 백엔드 처리 (ST_ClusterDBSCAN) — 사진 수천+ 시 zoom level별 cluster
+   */
+  async findPhotosByBbox(
+    userId: string,
+    bbox: [number, number, number, number],
+  ): Promise<RestResponse<GetMapPhotosResponseDto>> {
+    const [minLng, minLat, maxLng, maxLat] = bbox;
+    const photos = await this.photoRepo
+      .createQueryBuilder('p')
+      .where('p.userId = :userId', { userId })
+      .andWhere('p.processingStatus = :status', { status: 'done' })
+      .andWhere(
+        'ST_Within(p.location, ST_MakeEnvelope(:minLng, :minLat, :maxLng, :maxLat, 4326))',
+        { minLng, minLat, maxLng, maxLat },
+      )
+      .orderBy('p.takenAt', 'DESC')
+      .getMany();
+
+    const items = await Promise.all(photos.map((photo) => this.toListItemDto(photo)));
+    return new RestResponse<GetMapPhotosResponseDto>().success({ photos: items });
   }
 
   /** R2 key 형식 강제 — 사용자별 prefix로 cross-user 차단. */

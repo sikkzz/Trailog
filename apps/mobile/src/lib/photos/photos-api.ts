@@ -32,10 +32,13 @@ import { apiRequest } from '../auth';
 import {
   ConfirmPhotoResponseSchema,
   CreateUploadUrlResponseSchema,
+  GetMapPhotosResponseSchema,
   GetPhotosResponseSchema,
   type AllowedPhotoExt,
+  type Bbox,
   type ConfirmPhotoResponse,
   type CreateUploadUrlResponse,
+  type GetMapPhotosResponse,
   type GetPhotosResponse,
 } from './photos-schemas';
 
@@ -92,6 +95,18 @@ export async function confirmPhotoUpload(
 export async function getMomentPhotos(momentId: string): Promise<GetPhotosResponse> {
   const data = await apiRequest(`/moments/${momentId}/photos`);
   return GetPhotosResponseSchema.parse(data);
+}
+
+/**
+ * 지도 viewport 안 본인 사진 (Phase 2 4.7 D3a).
+ *
+ * - bbox: `[minLng, minLat, maxLng, maxLat]` (GeoJSON 순서, SRID 4326)
+ * - 백엔드가 `processingStatus='done'` + `location IS NOT NULL`만 필터 (PostGIS ST_Within)
+ * - 응답은 GetPhotosResponse와 동일 구조 (PhotoListItem 배열)
+ */
+export async function fetchMapPhotos(bbox: Bbox): Promise<GetMapPhotosResponse> {
+  const data = await apiRequest(`/photos/map?bbox=${bbox.join(',')}`);
+  return GetMapPhotosResponseSchema.parse(data);
 }
 
 /**

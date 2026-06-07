@@ -3,12 +3,13 @@
 export {
   confirmPhotoUpload,
   createPresignedUploadUrl,
+  fetchMapPhotos,
   getMomentPhotos,
   uploadPhoto,
   uploadPhotoToR2,
 } from './photos-api';
 
-export { photosKeys, useMomentPhotos, useUploadPhoto } from './photos-queries';
+export { photosKeys, useMapPhotos, useMomentPhotos, useUploadPhoto } from './photos-queries';
 
 export {
   AllowedPhotoExtSchema,
@@ -16,6 +17,7 @@ export {
   ConfirmPhotoResponseSchema,
   CreateUploadUrlRequestSchema,
   CreateUploadUrlResponseSchema,
+  GetMapPhotosResponseSchema,
   GetPhotosResponseSchema,
   PhotoListItemSchema,
   PhotoLocationSchema,
@@ -25,10 +27,12 @@ export {
 
 export type {
   AllowedPhotoExt,
+  Bbox,
   ConfirmPhotoRequest,
   ConfirmPhotoResponse,
   CreateUploadUrlRequest,
   CreateUploadUrlResponse,
+  GetMapPhotosResponse,
   GetPhotosResponse,
   PhotoListItem,
   PhotoLocation,

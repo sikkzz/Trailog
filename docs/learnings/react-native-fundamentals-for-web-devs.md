@@ -337,3 +337,34 @@ useEffect(() => {
 또는 setState 자체를 제거 — 분기 결정 후 즉시 `router.replace()`로 화면 전환되면 state 추적 불필요.
 
 코드 예시: [`apps/mobile/src/app/index.tsx`](../../apps/mobile/src/app/index.tsx) (setChecking state 제거 fix).
+
+---
+
+### 2026-06-07 — Phase 2 4.7 Android Emulator 위치 mock 함정 (fused provider)
+
+증상: iOS Simulator는 `Custom Location` 박은 좌표가 `expo-location.getCurrentPositionAsync`에 즉시 반영되는데, Android Emulator는 `adb emu geo fix 126.978 37.5665` 박았는데도 **Google HQ (Cupertino, 37.42, -122.08) 반환**.
+
+#### Root cause — `adb emu geo fix`는 GPS provider만 mock
+
+| Provider                                  | 동작               | mock 가능?                                                                                       |
+| ----------------------------------------- | ------------------ | ------------------------------------------------------------------------------------------------ |
+| GPS provider                              | 위성 신호 시뮬     | ✅ `adb emu geo fix`                                                                             |
+| Network provider (WiFi/Cell)              | 기지국/AP 기반     | ❌ emulator                                                                                      |
+| **Fused Provider (Google Play Services)** | GPS + Network 융합 | ⚠️ GPS update를 받아 cache 갱신할 때까지 시간 ↑ — **default cache는 emulator 부팅 시 Google HQ** |
+
+`expo-location` (기본 `Accuracy.Balanced`)는 fused provider 사용 → `adb emu geo fix` 직후 호출하면 cache(Google HQ) 반환. iOS Simulator는 fused 개념 없이 Custom Location 직접 적용.
+
+#### 해결책
+
+| 방법                                                                    | 동작                                           |
+| ----------------------------------------------------------------------- | ---------------------------------------------- |
+| **emulator 재시작 후 처음 부팅 시 Extended Controls → Location → SEND** | 가장 안정. fused가 fresh fix 받음              |
+| **emulator 안 Google Maps 앱 한 번 열기**                               | fused 위치 lock 강제 트리거                    |
+| `Location.Accuracy.Highest`로 변경                                      | GPS provider 직접 사용 (fused 우회) — dev only |
+| 진단 후 무시 + 실 디바이스 검증                                         | 가장 실용적 — production은 fused 정상          |
+
+#### Trailog 코드 선택 (2026-06-07)
+
+`Location.Accuracy.Balanced` 유지 + `try/catch` silent fallback (default Seoul 카메라 유지). 함정 코드 주석으로 박제 — 미래 Android Emulator 검증 시 참고. 실 디바이스/iOS는 영향 X.
+
+코드 예시: [`apps/mobile/src/app/(tabs)/map.tsx`](<../../apps/mobile/src/app/(tabs)/map.tsx>).

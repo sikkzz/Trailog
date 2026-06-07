@@ -28,6 +28,7 @@ import { PhotoProcessingProcessor } from './photo-processing.processor';
 import { Photo } from './photo.entity';
 import { PHOTO_PROCESSING_QUEUE } from './photos.constants';
 import { PhotosController } from './photos.controller';
+import { PhotosMapController } from './photos-map.controller';
 import { PhotosService } from './photos.service';
 
 @Module({
@@ -49,7 +50,7 @@ import { PhotosService } from './photos.service';
     BullModule.registerQueue({ name: PHOTO_PROCESSING_QUEUE }),
   ],
   providers: [PhotosService, PhotoProcessingProcessor],
-  controllers: [PhotosController],
+  controllers: [PhotosController, PhotosMapController],
   exports: [PhotosService],
 })
 export class PhotosModule {}

@@ -1,4 +1,4 @@
-// (tabs)/map — 지도 탭. Phase 2 4.7 D2b 위치 권한 + 현재 위치 center.
+// (tabs)/map — 지도 탭. Phase 2 4.7 D2~D4 (지도 + 위치 + bbox 쿼리 + 사진 marker).
 //
 // =============================================================================
 // 1. 라이브러리 선택 (ADR-0010)
@@ -56,18 +56,41 @@
 // `let cancelled` lifecycle 패턴 — 4.6 index.tsx fix 패턴 일관 (Android race 방어).
 //
 // =============================================================================
-// 5. D2 이후 (다음 단계)
+// 5. bbox 쿼리 + Marker — D3c/D4 (현재)
 // =============================================================================
 //
-// - D3: 백엔드 `GET /photos?bbox=...` 또는 `/photos/with-location` (PostGIS ST_Within)
-// - D4: 본인 사진 location → `<NaverMapMarkerOverlay>` pin + 클릭 popup → photo detail
-// - D5: Cluster (네이버맵 자체 cluster 지원 검증 또는 외부 lib/직접 구현)
+// **`onCameraIdle` 자체 debounce**: 카메라 이동 끝나야 호출 — 사용자가 panning 중엔
+// 발생 X. 별도 setTimeout debounce 불필요. region 인자에 south-west 좌표 +
+// latitudeDelta/longitudeDelta 포함 → bbox `[minLng, minLat, maxLng, maxLat]` 변환.
+//
+// **bbox state → useMapPhotos hook → 백엔드 `GET /photos/map?bbox=...`**
+// (PostGIS ST_Within + ST_MakeEnvelope, GIST 인덱스 자연 활용).
+// React Query `placeholderData=keepPreviousData` → viewport 이동 중 이전 pin 유지 (flicker 방지).
+//
+// **Marker — `<NaverMapMarkerOverlay>`**: 기본 심볼 `red` 사용 (4.8 폴리시 wave에
+// thumbnail icon 검토). `onTap` 클로저로 photo 캡쳐 → `router.push` photo detail.
+// momentId도 함께 전달 — 4.6 D4d 화면이 momentId 필요 (단일 photo GET 백엔드 후속 박제).
+//
+// =============================================================================
+// 6. 향후 (D5/D6/D7)
+// =============================================================================
+//
+// - D5: Cluster (네이버맵 자체 `clusters` prop 지원 확인 — 4.8 polish 또는 후속)
+// - D6: 사진 상세 미니맵 + reverse geocoding (4.6 D4d 박제 raw lat/lng 개선)
+// - D7: 학습 노트 3건 (지도 lib 비교 / cluster 알고리즘 / PostGIS 공간 쿼리)
 
-import { NaverMapView, type NaverMapViewRef } from '@mj-studio/react-native-naver-map';
+import {
+  NaverMapMarkerOverlay,
+  NaverMapView,
+  type NaverMapViewRef,
+} from '@mj-studio/react-native-naver-map';
 import * as Location from 'expo-location';
-import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { useMapPhotos, type Bbox } from '../../lib/photos';
 
 // 초기 카메라 위치 — 서울 시청 (한국 중심 도메인 + 친숙한 기준점)
 const SEOUL_CITY_HALL = {
@@ -80,30 +103,62 @@ const SEOUL_CITY_HALL = {
 const CURRENT_LOCATION_ZOOM = 14;
 
 export default function MapScreen() {
+  const router = useRouter();
   const mapRef = useRef<NaverMapViewRef>(null);
   const [permissionStatus, setPermissionStatus] = useState<Location.PermissionStatus | null>(null);
+  const [bbox, setBbox] = useState<Bbox | null>(null);
+
+  const { data: mapPhotosData } = useMapPhotos(bbox);
+
+  // 카메라 이동 끝나면 region(south-west + delta) → bbox [minLng, minLat, maxLng, maxLat]
+  // onCameraIdle 자체 debounce — 별도 setTimeout 불필요.
+  const handleCameraIdle = useCallback(
+    (params: {
+      region: {
+        latitude: number;
+        longitude: number;
+        latitudeDelta: number;
+        longitudeDelta: number;
+      };
+    }) => {
+      const { latitude, longitude, latitudeDelta, longitudeDelta } = params.region;
+      setBbox([longitude, latitude, longitude + longitudeDelta, latitude + latitudeDelta]);
+    },
+    [],
+  );
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (cancelled) return;
-      setPermissionStatus(status);
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (cancelled) return;
+        setPermissionStatus(status);
 
-      if (status !== Location.PermissionStatus.GRANTED) return;
+        if (status !== Location.PermissionStatus.GRANTED) return;
 
-      // Balanced — 100m 정확도, 배터리 적당. High는 GPS hot, Highest는 fix 시간 ↑.
-      // 사진 지도 탭 진입 직후 view center 정도엔 Balanced 충분.
-      const pos = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-      if (cancelled) return;
+        // Balanced — 100m 정확도, 배터리 적당. High는 GPS hot, Highest는 fix 시간 ↑.
+        // 사진 지도 탭 진입 직후 view center 정도엔 Balanced 충분.
+        //
+        // Android Emulator 함정 (디버깅 박제): `adb emu geo fix`는 GPS provider만 mock하는데
+        // expo-location은 fused_location_provider 사용 → cache된 default(Google HQ) 반환 가능.
+        // 실 디바이스/iOS는 정상. Android Emulator 검증 시 Extended Controls → Location → SEND +
+        // Google Maps 앱 한 번 열어서 fused lock 강제 권장.
+        const pos = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        if (cancelled) return;
 
-      mapRef.current?.animateCameraTo({
-        latitude: pos.coords.latitude,
-        longitude: pos.coords.longitude,
-        zoom: CURRENT_LOCATION_ZOOM,
-      });
+        mapRef.current?.animateCameraTo({
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+          zoom: CURRENT_LOCATION_ZOOM,
+        });
+      } catch {
+        // 위치 timeout/실패 — Seoul 기본 카메라 유지 (silent fallback).
+        // banner는 권한 거부 시만 노출. 위치 자체 실패는 사용자 액션 없이 회복 어려움이라
+        // 추가 UI X (Phase 후속 — 더 자연스러운 retry 흐름 검토).
+      }
     })();
     return () => {
       cancelled = true;
@@ -135,7 +190,25 @@ export default function MapScreen() {
         isShowZoomControls
         isShowScaleBar
         isShowCompass
-      />
+        onCameraIdle={handleCameraIdle}
+      >
+        {mapPhotosData?.photos.map((photo) =>
+          photo.location ? (
+            <NaverMapMarkerOverlay
+              key={photo.id}
+              latitude={photo.location.latitude}
+              longitude={photo.location.longitude}
+              image={{ symbol: 'red' }}
+              width={28}
+              height={36}
+              onTap={() =>
+                // typed routes — momentId query param 동봉 (4.6 D4d 화면 활용)
+                router.push(`/photos/${photo.id}?momentId=${photo.momentId}` as never)
+              }
+            />
+          ) : null,
+        )}
+      </NaverMapView>
       {permissionStatus === Location.PermissionStatus.DENIED && (
         <View style={styles.banner}>
           <Text style={styles.bannerTitle}>위치 권한이 거부되어 있어요</Text>

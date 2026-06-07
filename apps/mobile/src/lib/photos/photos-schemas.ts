@@ -96,3 +96,20 @@ export const GetPhotosResponseSchema = z.object({
 
 export type PhotoListItem = z.infer<typeof PhotoListItemSchema>;
 export type GetPhotosResponse = z.infer<typeof GetPhotosResponseSchema>;
+
+// =============================================================================
+// GET /photos/map?bbox=... — 지도 viewport 사진 (Phase 2 4.7 D3a)
+// =============================================================================
+//
+// 응답 구조는 GetPhotosResponse와 동일 (PhotoListItem 배열).
+// 단 백엔드에서 processingStatus='done' + location IS NOT NULL 보장.
+// 별도 schema/type으로 분리 — 미래 lite response 전환 시점에 자연 변경 자리.
+
+export const GetMapPhotosResponseSchema = z.object({
+  photos: z.array(PhotoListItemSchema),
+});
+
+export type GetMapPhotosResponse = z.infer<typeof GetMapPhotosResponseSchema>;
+
+/** bbox tuple: `[minLng, minLat, maxLng, maxLat]` — GeoJSON 순서, WGS84/SRID 4326 */
+export type Bbox = [number, number, number, number];
