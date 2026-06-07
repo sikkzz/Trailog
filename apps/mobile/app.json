@@ -27,6 +27,26 @@
         {
           "photosPermission": "Trailog가 사진을 업로드하기 위해 갤러리 접근이 필요합니다"
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Trailog가 지도에 현재 위치를 표시하기 위해 위치 정보를 사용합니다"
+        }
+      ],
+      [
+        "@mj-studio/react-native-naver-map",
+        {
+          "client_id": "p3qy2ctdv1"
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "extraMavenRepos": ["https://repository.map.naver.com/archive/maven"]
+          }
+        }
       ]
     ],
     "experiments": {

@@ -164,14 +164,18 @@
 
 ### 4.7 지도 표시 (1주)
 
-- [ ] 지도 라이브러리 선택 (Q6: react-native-maps vs MapLibre)
-- [ ] `(tabs)/map` 탭 추가
-- [ ] 모든 본인 사진 → 지도 pin
-- [ ] Cluster (사진 많을 때 묶음)
-- [ ] pin 클릭 → 사진 상세 또는 dad popup
-- [ ] 사용자 위치 동의 + 권한 (expo-location)
-- [ ] 학습 노트: 지도 라이브러리 비교, cluster 알고리즘, PostGIS 공간 쿼리
-- [ ] (추가, 4.6 D4d에서 박제) **사진 상세 위치 표시 개선** — 현재 raw lat/lng(`63.5314, -19.5112`) → 미니맵 + reverse geocoding(주소 "아이슬란드 남부 Eyvindarhólar"). 지도 라이브러리 + Geocoding API(expo-location reverseGeocodeAsync 또는 OSM Nominatim) 같이 검토.
+> **D1 결정 박제 (2026-06-07)**: Q6 지도 라이브러리 — **네이버맵 `@mj-studio/react-native-naver-map`** ([ADR-0010](../decisions/0010-mobile-map-library-naver-map.md), supersedes [ADR-0009](../decisions/0009-mobile-map-library-react-native-maps.md) react-native-maps).
+> **도메인 정의 정정 박제 (2026-06-07)**: Trailog 사용자 우선순위 **한국 중심 + 해외는 Phase 후속** ([PROJECT_ROOT 결정 1](../PROJECT_ROOT.md#결정-1-도메인--개인-메모리-아카이브-광의--한국-사용자-중심)).
+
+- [x] **D1 — Q6 라이브러리 결정 + 의존성 셋업** — ADR-0009(react-native-maps) → ADR-0010(네이버맵) supersede. `@mj-studio/react-native-naver-map` v2.9.0 + `expo-build-properties` + `expo-location` install. app.json plugin object 형식 (client_id + Naver Maven repository). NCP Client ID 발급 + 박제 + dev build 재빌드.
+- [ ] **D2 — `(tabs)/map` 골격 + 위치 권한 + 기본 지도 표시** (NaverMap 컴포넌트 mount + 초기 center 좌표 + 현재 위치 핀)
+- [ ] **D3 — 백엔드 bbox 쿼리 API** — `GET /photos?bbox=...` 또는 `GET /photos/with-location`. PostGIS `ST_Within` + `ST_MakeEnvelope` 또는 `WHERE location IS NOT NULL` 자연 검증
+- [ ] **D4 — 사진 pin + popup** — 본인 사진 location → NaverMap Marker. pin 클릭 → photo detail navigation
+- [ ] **D5 — Cluster** — 네이버맵 자체 cluster 지원 확인 또는 외부 lib/직접 구현. 사진 많아질 때 묶음
+- [ ] **D6 — 사진 상세 미니맵 + reverse geocoding** (4.6 D4d 박제) — 현재 raw lat/lng(`63.5314, -19.5112`) → NaverMap 미니맵 + 주소 텍스트 (네이버 Geocoding API 또는 `expo-location.reverseGeocodeAsync`)
+- [ ] **D7 — 학습 노트 3건** — (1) 한국 vs 글로벌 모바일 지도 SDK 비교 (네이버/카카오/Google/Apple/MapLibre/expo-maps + ADR-0009 supersede 흐름), (2) cluster 알고리즘 (DBSCAN/Supercluster 등), (3) PostGIS 공간 쿼리 실 사용 (ST_Within/ST_MakeEnvelope/bbox query)
+
+**해외 사진 GPS 제한 (Phase 후속)**: 네이버맵은 한국 데이터 우위 + 해외 데이터 약점. 본인 일본/유럽 등 EXIF GPS 사진은 핀 표시 부정확 또는 데이터 부족 가능. **Phase 후속 (글로벌 출시 시점)**에 multi-provider 또는 글로벌 lib 추가 검토 ([ADR-0010 재검토 트리거](../decisions/0010-mobile-map-library-naver-map.md#재검토-트리거)).
 
 ### 4.8 UI/UX 폴리시 + 고도화 학습 (별도 wave, 본인 결정 2026-06-03)
 
@@ -260,33 +264,34 @@ flowchart LR
 
 각 Q는 해당 sub-phase 직전에 결정 + 큰 건 ADR. 모두 Phase 2 진입 후 결정.
 
-| #   | 사안                                              | 후보                                                                                                                                                                      | 결정 시점       |
-| --- | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
-| Q1  | ORM (Prisma vs TypeORM)                           | ✅ ADR-0006 Accepted (TypeORM, 2026-05-28) — 친숙도 정복 + 본진 시간 보호.                                                                                           | 2026-05-28 확정 |
-| Q2  | JWT 저장 + 전송 방식 (모바일)                     | ✅ 확정 (2026-05-29): expo-secure-store(OS Keychain/Keystore) + Bearer header. Trailog 모바일 only라 XSS/CSRF 위험 X → cookie 이점 무용. 참조 (실무 웹)와 의도적 다른 선택. | 2026-05-29 확정 |
-| Q3  | 이미지 저장소 (R2 vs Supabase Storage vs S3)      | R2 잠정 (egress 0) / Supabase (DB와 함께)                                                                                                                                 | 4.3 (ADR 후보)  |
-| Q4  | 큐 도구 (BullMQ vs setImmediate vs cron)          | BullMQ 잠정 (학습 + 표준 패턴)                                                                                                                                            | 4.4             |
-| Q5  | EXIF 라이브러리 (exifr vs piexifjs vs sharp 내장) | exifr 잠정 (가벼움)                                                                                                                                                       | 4.5             |
-| Q6  | 지도 라이브러리 (react-native-maps vs MapLibre)   | react-native-maps 잠정 (Expo 친화) / MapLibre (오픈)                                                                                                                      | 4.7 (ADR 후보)  |
-| Q7  | 사진 카탈로그 UI (Moment-first vs Photo-first)    | Moment-first 잠정 (사용자 멘탈 모델 — 순간 단위 그루핑)                                                                                                                   | 4.6             |
-| Q8  | 상태관리 (Zustand vs Redux Toolkit + RQ)          | Zustand 잠정 (사이드 규모, 단순)                                                                                                                                          | 4.6             |
-| Q9  | 사진 form (react-hook-form 도입?)                 | 도입 잠정 (모바일 form 표준)                                                                                                                                              | 4.6             |
-| Q10 | 사용자 위치 권한 UX                               | 첫 진입 X, 지도 탭 클릭 시 요청                                                                                                                                           | 4.7             |
-| Q11 | DB 호스팅 (Supabase vs Neon vs 로컬 docker)       | Supabase 잠정 (무료 + Postgres + Auth는 X)                                                                                                                                | 4.2 (ADR 후보)  |
+| #   | 사안                                                             | 후보                                                                                                                                                                         | 결정 시점       |
+| --- | ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
+| Q1  | ORM (Prisma vs TypeORM)                                          | ✅ ADR-0006 Accepted (TypeORM, 2026-05-28) — 친숙도 정복 + 본진 시간 보호.                                                                                              | 2026-05-28 확정 |
+| Q2  | JWT 저장 + 전송 방식 (모바일)                                    | ✅ 확정 (2026-05-29): expo-secure-store(OS Keychain/Keystore) + Bearer header. Trailog 모바일 only라 XSS/CSRF 위험 X → cookie 이점 무용. 참조 (실무 웹)와 의도적 다른 선택.    | 2026-05-29 확정 |
+| Q3  | 이미지 저장소 (R2 vs Supabase Storage vs S3)                     | R2 잠정 (egress 0) / Supabase (DB와 함께)                                                                                                                                    | 4.3 (ADR 후보)  |
+| Q4  | 큐 도구 (BullMQ vs setImmediate vs cron)                         | BullMQ 잠정 (학습 + 표준 패턴)                                                                                                                                               | 4.4             |
+| Q5  | EXIF 라이브러리 (exifr vs piexifjs vs sharp 내장)                | exifr 잠정 (가벼움)                                                                                                                                                          | 4.5             |
+| Q6  | 지도 라이브러리 (네이버맵 vs 카카오 vs Google/Apple vs MapLibre) | ✅ ADR-0010 Accepted (네이버맵 `@mj-studio/react-native-naver-map`, 2026-06-07) supersedes ADR-0009(react-native-maps). 본인 Google/Apple UX 거부감 + 도메인 한국 우선 정의. | 2026-06-07 확정 |
+| Q7  | 사진 카탈로그 UI (Moment-first vs Photo-first)                   | Moment-first 잠정 (사용자 멘탈 모델 — 순간 단위 그루핑)                                                                                                                      | 4.6             |
+| Q8  | 상태관리 (Zustand vs Redux Toolkit + RQ)                         | Zustand 잠정 (사이드 규모, 단순)                                                                                                                                             | 4.6             |
+| Q9  | 사진 form (react-hook-form 도입?)                                | 도입 잠정 (모바일 form 표준)                                                                                                                                                 | 4.6             |
+| Q10 | 사용자 위치 권한 UX                                              | 첫 진입 X, 지도 탭 클릭 시 요청                                                                                                                                              | 4.7             |
+| Q11 | DB 호스팅 (Supabase vs Neon vs 로컬 docker)                      | Supabase 잠정 (무료 + Postgres + Auth는 X)                                                                                                                                   | 4.2 (ADR 후보)  |
 
 ## 10. 학습 노트 작성 예상 토픽
 
-| 토픽                                  | sub-phase |
-| ------------------------------------- | --------- |
-| `jwt-auth-and-refresh-rotation.md`    | 4.1       |
-| `prisma-or-typeorm.md` (선택 후 정리) | 4.2       |
-| `postgis-basics.md`                   | 4.2       |
-| `r2-presigned-url-uploads.md`         | 4.3       |
-| `bullmq-redis-queue-patterns.md`      | 4.4       |
-| `sharp-image-processing.md`           | 4.4       |
-| `exif-and-privacy.md`                 | 4.5       |
-| `expo-router-and-mobile-state.md`     | 4.6       |
-| `react-native-maps-and-clusters.md`   | 4.7       |
+| 토픽                                                                  | sub-phase |
+| --------------------------------------------------------------------- | --------- |
+| `jwt-auth-and-refresh-rotation.md`                                    | 4.1       |
+| `prisma-or-typeorm.md` (선택 후 정리)                                 | 4.2       |
+| `postgis-basics.md`                                                   | 4.2       |
+| `r2-presigned-url-uploads.md`                                         | 4.3       |
+| `bullmq-redis-queue-patterns.md`                                      | 4.4       |
+| `sharp-image-processing.md`                                           | 4.4       |
+| `exif-and-privacy.md`                                                 | 4.5       |
+| `expo-router-and-mobile-state.md`                                     | 4.6       |
+| `mobile-map-libraries-comparison.md` (네이버맵 채택 + supersede 박제) | 4.7       |
+| `cluster-algorithms-and-spatial-queries.md` (cluster + PostGIS bbox)  | 4.7       |
 
 ## 11. 변경 이력
 
@@ -310,3 +315,4 @@ flowchart LR
 | 2026-06-03 | **🎉 4.5 EXIF 추출 완료** — D1(Q5 exifreader 확정 + Photo entity 보강 `taken_at`/`location geometry(Point,4326)`/`exif_json` + GIST/B-tree 인덱스 + 마이그레이션 적용) + D2(Worker에 EXIF 추출 단계 — DateTimeOriginal 파싱 `:` 구분자 함정 처리, GPS GeoJSON `[lng,lat]` 변환, EXIF 추출 실패 fault tolerance — throw X) + D3(Photos API 응답에 takenAt + location 노출, `PhotoLocationDto` nested class, DB GeoJSON ↔ API friendly `{latitude, longitude}` Service mapping). **추가 박제**: `exif_json` 원본 보존(미래 새 필드 추출 시 reprocess 없이 DB만 update) + jsonb update의 TypeORM type 한계 회피(`as never` cast 한 줄 + 주석). 학습 노트 [exif-and-photo-metadata.md](../learnings/exif-and-photo-metadata.md) — EXIF IFD 트리, DateTime 3종, timezone 함정(OffsetTimeOriginal 단순화 채택), GPS rational→decimal, GeoJSON 좌표 순서 함정(가장 흔한 버그), PostGIS Point + SRID 4326, **프라이버시 깊이**(John McAfee 사고 + SNS strip 패턴 + Phase 3 공유 시 strip 정책). 참조 EXIF 미사용 — 보편 Node 패턴 채택. EXIF 없는 사진 수동 입력 fallback UI는 4.6 모바일로 이동. 다음: 4.6 모바일 첫 화면.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | 2026-06-03 | **🎉 4.6 모바일 첫 화면 완료** — D1(Expo Router 골격 + QueryClient + 의존성 6개) + D2(Login/Signup RHF + zodResolver + index 인증 분기 + setOnUnauthorized) + D3(Moments lib + 리스트/생성/상세 + React Query) + D4a-d(Photos lib Schema 정정 + 사진 grid + 업로드 흐름 expo-image-picker + FileSystem.uploadAsync + refetchInterval polling + 사진 상세) + D5(학습 노트 5건). **Q9 결정** — 글로벌 상태 lib 미도입(React Query + 로컬 state 충분). **ADR-0008 Zod 응답 검증 정착** — 모든 모바일 lib Schema.parse + z.infer 단일 출처. **추가 백엔드 fix 2건** — RestResponse.toJSON() 4.1~4.5 회귀 + photo-processing exif_json sanitize(PostgreSQL jsonb null char 거부). 학습 노트 5건(expo-router-patterns + expo-image-picker-and-uploadasync + react-query-usage-and-polling + zod-runtime-validation-ux + react-native-fundamentals-for-web-devs). **4.8 UI/UX 폴리시 wave 신설** — 4.6 진행 중 발견된 UX 디테일(raw ISO input, 색상/spacing, HEIC 변환 등) 즉시 정정 X, 별도 wave 일괄. iOS Simulator + Android Emulator 검증 완료. 다음: 4.7 지도 표시.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | 2026-06-03 | **4.6 Android 통합 검증 중 발견 4건 + fix 박제**. ① **백엔드 worker `POINT(0 0)` 버그 fix** — exifreader가 GPS Ref 없으면 capitalized `Latitude` 필드를 null로 반환하는데, worker의 `typeof === 'number'` guard는 통과시키지 않지만 NaN은 통과. JSON 직렬화 시 NaN → null → TypeORM이 PostGIS Point 변환 시 `POINT(0 0)` fallback. `Number.isFinite()` 일괄 guard로 fix. ② **Android Emulator localhost networking fix** — Android Emulator는 자체 network namespace이라 `localhost`로 host Mac 접근 불가. `Platform.OS === 'android'` 분기로 `10.0.2.2:3000` 자동 사용 (`api-client.ts` `getDefaultApiUrl()`). ③ **React state warning fix** — Android에서 `setChecking` state가 unmount 시점과 race → `Can't perform a React state update` 경고. `index.tsx`에서 state 자체 제거 + lifecycle 안전 패턴(`let cancelled` flag). ④ **Picker EXIF OS별 차이 발견** — sips + exiftool 합성 EXIF가 Android picker만 GPS Ref 손실. 진짜 카메라 EXIF는 양쪽 다 정상 — production 영향 X. 추후 인지 메모리 `picker-exif-preservation-revisit` 박제 (Phase 3 공유 흐름/사용자 손실 보고/Phase 4 production/picker 업그레이드 시 능동 알림). 학습 노트 3건 보강 — `exif-and-photo-metadata.md` (POINT(0 0) 디버깅 흐름 + EXIF Ref 결정적 역할 + R2 객체 직접 다운로드 검증 도구 + picker OS별 차이 + 검증용 사진 권장) + `postgis-basics.md` (geometry 컬럼 raw SELECT는 hex 함정 + `ST_AsText`/`ST_AsGeoJSON` 사용 패턴 + POINT(0 0) 추적법 + 자주 쓰는 디버깅 쿼리 4종) + `react-native-fundamentals-for-web-devs.md` (Android Emulator 사진 push 흐름 + 10.0.2.2 networking + iOS vs Android picker EXIF 차이 + React state warning lifecycle 패턴). 다음: 4.7 지도 표시. |
+| 2026-06-07 | **🎯 4.7 D1 — Q6 지도 라이브러리 결정 흐름 + 도메인 한국 우선 정의 정정 (ADR-0009 → ADR-0010 supersede)**. 처음 react-native-maps 채택 ([ADR-0009](../decisions/0009-mobile-map-library-react-native-maps.md)) 직후 본인 검토 — ① **Google/Apple Maps 한국 사용자 UX 거부감** + ② **Trailog 도메인 사용자 우선순위를 한국 중심으로 재정의** 필요성 부각 → 글로벌 가정 lib을 fundamental 변경. **네이버맵 `@mj-studio/react-native-naver-map` v2.9.0 채택** ([ADR-0010](../decisions/0010-mobile-map-library-naver-map.md), MIT, New Architecture 호환 명시, Expo config plugin 공식). **얻는 것**: 한국 사용자 UX 친숙도(네이버맵 일상 사용) + 한국 도로/지명 정확도 + RN/Expo 안정 통합 + 무료 한도 ↑(NCP 모바일 dynamic map 사실상 무제한) + 한국 시장 모바일 지도 SDK 정복 실무 가치. **포기**: 해외 사진 정확도 → Phase 후속(글로벌 출시 검토 시점) / RN 표준 lib 베이스 정복 보류. **카카오는 RN community lib 안정성 검증 부담**으로 제외 — 네이버가 RN/Expo 통합 안정성 우위. **PROJECT_ROOT 결정 1 도메인 정의에 한국 우선 명시** + 학습 영역 #3 정복 관점 정정(RN 표준 → 한국 시장 실무 SDK). **의존성 swap**: `react-native-maps` 제거 + `@mj-studio/react-native-naver-map` + `expo-build-properties` install. **app.json**: plugin object 형식 (`client_id` + Naver Maven repository 주입). **NCP Client ID 발급** 완료 + 박제. 다음: dev build 재빌드 + D1 commit + D2(`(tabs)/map` 골격 + 위치 권한 + 기본 지도 표시).                                                                                                                                                                                                                                |
