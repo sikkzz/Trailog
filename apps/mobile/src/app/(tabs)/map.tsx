@@ -72,18 +72,30 @@
 // momentId도 함께 전달 — 4.6 D4d 화면이 momentId 필요 (단일 photo GET 백엔드 후속 박제).
 //
 // =============================================================================
-// 6. 향후 (D5/D6/D7)
+// 6. Cluster — D5 (사진 묶음)
 // =============================================================================
 //
-// - D5: Cluster (네이버맵 자체 `clusters` prop 지원 확인 — 4.8 polish 또는 후속)
-// - D6: 사진 상세 미니맵 + reverse geocoding (4.6 D4d 박제 raw lat/lng 개선)
+// NaverMap 자체 `clusters` prop 활용 — 외부 lib(supercluster.js 등) 불필요.
+// 사진 수 적은 현재 시점에선 시각 효과 ↓이지만 사진 1000+ 시점부터 자연 발현.
+//
+// 동작:
+// - 같은 cluster config의 ClusterMarkerProp 배열에 모든 사진 marker 박힘.
+// - `screenDistance` px 이내 marker들이 자동으로 cluster 됨 (DBSCAN 비슷한 grid 기반).
+// - `minZoom`/`maxZoom`은 cluster 적용 줌 범위.
+// - 사용자가 cluster 탭 → 자동 zoom in. 충분히 zoom in되면 풀려서 단일 marker로.
+// - 단일 marker 탭 → `onTapClusterLeaf({ markerIdentifier })` 콜백 → photo detail.
+//
+// 자식 `<NaverMapMarkerOverlay>` 방식과의 차이:
+// - children marker: 카메라가 어디든 항상 노출. cluster X.
+// - clusters prop: 자동 cluster + 줌별 노출/숨김. 사진 많을 때 성능 ↑ + 시인성 ↑.
+//
+// =============================================================================
+// 7. 향후 (D7)
+// =============================================================================
+//
 // - D7: 학습 노트 3건 (지도 lib 비교 / cluster 알고리즘 / PostGIS 공간 쿼리)
 
-import {
-  NaverMapMarkerOverlay,
-  NaverMapView,
-  type NaverMapViewRef,
-} from '@mj-studio/react-native-naver-map';
+import { NaverMapView, type NaverMapViewRef } from '@mj-studio/react-native-naver-map';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -109,6 +121,30 @@ export default function MapScreen() {
   const [bbox, setBbox] = useState<Bbox | null>(null);
 
   const { data: mapPhotosData } = useMapPhotos(bbox);
+
+  // ClusterMarkerProp 배열 — photo.location 있는 것만, photo.id를 identifier로.
+  // identifier로 onTapClusterLeaf 콜백에서 photo find → navigation.
+  const clusterMarkers =
+    mapPhotosData?.photos
+      .filter((p) => p.location !== null)
+      .map((p) => ({
+        identifier: p.id,
+        latitude: p.location!.latitude,
+        longitude: p.location!.longitude,
+        image: { symbol: 'red' as const },
+        width: 28,
+        height: 36,
+      })) ?? [];
+
+  const handleTapClusterLeaf = useCallback(
+    ({ markerIdentifier }: { markerIdentifier: string }) => {
+      const photo = mapPhotosData?.photos.find((p) => p.id === markerIdentifier);
+      if (!photo) return;
+      // typed routes — momentId query param 동봉 (4.6 D4d 화면 활용)
+      router.push(`/photos/${photo.id}?momentId=${photo.momentId}` as never);
+    },
+    [mapPhotosData, router],
+  );
 
   // 카메라 이동 끝나면 region(south-west + delta) → bbox [minLng, minLat, maxLng, maxLat]
   // onCameraIdle 자체 debounce — 별도 setTimeout 불필요.
@@ -191,24 +227,20 @@ export default function MapScreen() {
         isShowScaleBar
         isShowCompass
         onCameraIdle={handleCameraIdle}
-      >
-        {mapPhotosData?.photos.map((photo) =>
-          photo.location ? (
-            <NaverMapMarkerOverlay
-              key={photo.id}
-              latitude={photo.location.latitude}
-              longitude={photo.location.longitude}
-              image={{ symbol: 'red' }}
-              width={28}
-              height={36}
-              onTap={() =>
-                // typed routes — momentId query param 동봉 (4.6 D4d 화면 활용)
-                router.push(`/photos/${photo.id}?momentId=${photo.momentId}` as never)
-              }
-            />
-          ) : null,
-        )}
-      </NaverMapView>
+        onTapClusterLeaf={handleTapClusterLeaf}
+        clusters={[
+          {
+            markers: clusterMarkers,
+            // 같은 화면 100px 안 marker들 cluster — 보편적 cluster 거리.
+            // 사진 많아질 때 조절 (예: 50px = 더 잘게 / 150px = 더 큰 그룹).
+            screenDistance: 100,
+            // zoom level 0 ~ 16에서 cluster 적용 — 17+ 줌 인하면 풀려서 단일 marker.
+            minZoom: 0,
+            maxZoom: 16,
+            animate: true,
+          },
+        ]}
+      />
       {permissionStatus === Location.PermissionStatus.DENIED && (
         <View style={styles.banner}>
           <Text style={styles.bannerTitle}>위치 권한이 거부되어 있어요</Text>
