@@ -14,6 +14,8 @@
 //      자동 로그인 화면으로. Phase 2 4.1 api-client에 인프라 박혀있었으나 callback 미등록 상태였음.
 //      D3 진입 (useMoments 호출) 전에 박는 게 필수.
 
+import '../../global.css'; // NativeWind v4 — Tailwind atomic styles 주입 (Phase 2 4.8 D2-1)
+
 import { QueryClientProvider } from '@tanstack/react-query';
 import { router, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';

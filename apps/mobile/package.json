@@ -43,10 +43,12 @@
     "expo-secure-store": "~56.0.4",
     "expo-status-bar": "^56.0.4",
     "expo-updates": "~56.0.17",
+    "nativewind": "^4.2.5",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "react-hook-form": "^7.77.0",
     "react-native": "^0.85.3",
+    "react-native-reanimated": "4.3.1",
     "react-native-safe-area-context": "^5.7.0",
     "react-native-screens": "^4.25.2",
     "react-native-web": "^0.21.2",
@@ -57,6 +59,8 @@
     "@trailog/eslint-config": "workspace:^",
     "@types/react": "^19.2.15",
     "eslint": "^9.0.0",
+    "prettier-plugin-tailwindcss": "^0.8.0",
+    "tailwindcss": "^3.4.17",
     "typescript": "^6.0.3"
   }
 }

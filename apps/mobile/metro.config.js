@@ -1,7 +1,12 @@
-// Trailog Metro 설정 — pnpm 모노레포용
-// 참고: https://docs.expo.dev/guides/monorepos/
+// Trailog Metro 설정 — pnpm 모노레포 + NativeWind v4 (Phase 2 4.8 D2-1).
+//
+// 참고:
+// - Monorepo: https://docs.expo.dev/guides/monorepos/
+// - NativeWind: https://www.nativewind.dev/docs/getting-started/installation
 
+/* eslint-disable @typescript-eslint/no-require-imports -- CommonJS config 파일 */
 const { getDefaultConfig } = require('expo/metro-config');
+const { withNativeWind } = require('nativewind/metro');
 const path = require('path');
 
 const projectRoot = __dirname;
@@ -24,4 +29,5 @@ config.resolver.nodeModulesPaths = [
 // - pnpm 기본 strict 모드와 Expo의 transitive import 패턴이 충돌하던 이슈 회피.
 config.resolver.disableHierarchicalLookup = false;
 
-module.exports = config;
+// NativeWind v4 — Tailwind CSS을 Metro 빌드에 통합 (global.css → atomic styles)
+module.exports = withNativeWind(config, { input: './global.css' });

@@ -8,7 +8,7 @@
     "scheme": "trailog",
     "newArchEnabled": true,
     "ios": {
-      "bundleIdentifier": "com.trailog.app",
+      "bundleIdentifier": "com.sling.trailog",
       "supportsTablet": true
     },
     "android": {
