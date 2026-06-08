@@ -2,10 +2,11 @@
 //
 // 참조 코드 비교 + RN 기본 문법 해설은 login.tsx 헤더 참고.
 // Phase 2 4.8 D3-4 — StyleSheet → NativeWind 마이그레이션 (ADR-0011).
-//
-// ⚠️ 임시 UI — UI/UX 폴리시 wave 후속 정정:
-//   - 시작/종료 input: raw ISO 8601 string → DatePicker (`@react-native-community/datetimepicker`)
-//     (D4 별도 단계 예정)
+// Phase 2 4.8 D4 — raw ISO 8601 input → react-native-modal-datetime-picker
+//   - iOS/Android 동일 modal UX (native picker wrapper, 사용자 친화).
+//   - **date만** 선택 (시간 X) — Moment 단위는 date가 자연. 시간은 EXIF로 박힘.
+//   - 둘 다 optional 유지 — 단발 방문이면 비워도 OK.
+//   - ISO 8601 변환: Date → `YYYY-MM-DDT00:00:00.000Z` (백엔드 zod datetime 검증 통과).
 //
 // 이 화면 학습 포인트 — react-query mutation 흐름:
 //   1. mutation.mutate(body) 호출
@@ -15,6 +16,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'expo-router';
+import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
   Alert,
@@ -25,6 +27,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ApiError } from '../../lib/auth';
@@ -33,6 +36,20 @@ import {
   useCreateMoment,
   type CreateMomentRequest,
 } from '../../lib/moments';
+
+/** Date → ISO 8601 datetime (00:00 UTC) — 백엔드 zod ISO datetime 검증 통과 */
+function toIsoDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}T00:00:00.000Z`;
+}
+
+/** ISO 8601 → 사용자 친화 'YYYY-MM-DD' (한국식 표시) */
+function formatDate(iso: string | undefined): string {
+  if (!iso) return '선택 안 함';
+  return iso.slice(0, 10);
+}
 
 export default function CreateMomentScreen() {
   const router = useRouter();
@@ -45,6 +62,9 @@ export default function CreateMomentScreen() {
     resolver: zodResolver(CreateMomentRequestSchema),
     defaultValues: { title: '', startedAt: undefined, endedAt: undefined },
   });
+
+  // DatePicker modal 가시성 — 시작/종료 중 어떤 거 띄울지 state로 분기
+  const [pickerOpen, setPickerOpen] = useState<'started' | 'ended' | null>(null);
 
   const onSubmit = (form: CreateMomentRequest) => {
     // 빈 string → undefined (zod optional + ISO 검증 회피)
@@ -115,28 +135,59 @@ export default function CreateMomentScreen() {
           <Controller
             control={control}
             name="startedAt"
-            render={({ field: { value, onChange, onBlur } }) => (
+            render={({ field: { value, onChange } }) => (
               <View className="mb-5">
                 <Text className="font-pretendard-medium text-sm text-text-secondary dark:text-text-secondary-dark mb-1.5">
-                  시작 (선택, ISO 8601)
+                  시작 (선택)
                 </Text>
-                <TextInput
-                  className={`font-pretendard text-base bg-surface dark:bg-surface-dark text-text-primary dark:text-text-primary-dark border rounded-md px-3.5 py-3 ${
-                    errors.startedAt ? 'border-danger' : 'border-border dark:border-border-dark'
-                  }`}
-                  placeholderTextColor="#999"
-                  value={value ?? ''}
-                  onChangeText={onChange}
-                  onBlur={onBlur}
-                  placeholder="2026-04-15T00:00:00Z"
-                  autoCapitalize="none"
-                  editable={!isSubmitting}
-                />
+                <View className="flex-row gap-2">
+                  <Pressable
+                    onPress={() => setPickerOpen('started')}
+                    disabled={isSubmitting}
+                    className={`flex-1 bg-surface dark:bg-surface-dark border rounded-md px-3.5 py-3 active:opacity-70 ${
+                      errors.startedAt ? 'border-danger' : 'border-border dark:border-border-dark'
+                    }`}
+                  >
+                    <Text
+                      className={`font-pretendard text-base ${
+                        value
+                          ? 'text-text-primary dark:text-text-primary-dark'
+                          : 'text-text-tertiary dark:text-text-tertiary-dark'
+                      }`}
+                    >
+                      {formatDate(value)}
+                    </Text>
+                  </Pressable>
+                  {value && (
+                    <Pressable
+                      onPress={() => onChange(undefined)}
+                      disabled={isSubmitting}
+                      className="px-3.5 py-3 bg-surface dark:bg-surface-dark border border-border dark:border-border-dark rounded-md active:opacity-70"
+                    >
+                      <Text className="font-pretendard text-base text-text-secondary dark:text-text-secondary-dark">
+                        지우기
+                      </Text>
+                    </Pressable>
+                  )}
+                </View>
                 {errors.startedAt && (
                   <Text className="font-pretendard text-xs text-danger mt-1">
                     {errors.startedAt.message}
                   </Text>
                 )}
+                <DateTimePickerModal
+                  isVisible={pickerOpen === 'started'}
+                  mode="date"
+                  date={value ? new Date(value) : new Date()}
+                  onConfirm={(d) => {
+                    onChange(toIsoDate(d));
+                    setPickerOpen(null);
+                  }}
+                  onCancel={() => setPickerOpen(null)}
+                  locale="ko-KR"
+                  confirmTextIOS="선택"
+                  cancelTextIOS="취소"
+                />
               </View>
             )}
           />
@@ -144,28 +195,59 @@ export default function CreateMomentScreen() {
           <Controller
             control={control}
             name="endedAt"
-            render={({ field: { value, onChange, onBlur } }) => (
+            render={({ field: { value, onChange } }) => (
               <View className="mb-5">
                 <Text className="font-pretendard-medium text-sm text-text-secondary dark:text-text-secondary-dark mb-1.5">
-                  종료 (선택, ISO 8601)
+                  종료 (선택)
                 </Text>
-                <TextInput
-                  className={`font-pretendard text-base bg-surface dark:bg-surface-dark text-text-primary dark:text-text-primary-dark border rounded-md px-3.5 py-3 ${
-                    errors.endedAt ? 'border-danger' : 'border-border dark:border-border-dark'
-                  }`}
-                  placeholderTextColor="#999"
-                  value={value ?? ''}
-                  onChangeText={onChange}
-                  onBlur={onBlur}
-                  placeholder="2026-04-22T00:00:00Z"
-                  autoCapitalize="none"
-                  editable={!isSubmitting}
-                />
+                <View className="flex-row gap-2">
+                  <Pressable
+                    onPress={() => setPickerOpen('ended')}
+                    disabled={isSubmitting}
+                    className={`flex-1 bg-surface dark:bg-surface-dark border rounded-md px-3.5 py-3 active:opacity-70 ${
+                      errors.endedAt ? 'border-danger' : 'border-border dark:border-border-dark'
+                    }`}
+                  >
+                    <Text
+                      className={`font-pretendard text-base ${
+                        value
+                          ? 'text-text-primary dark:text-text-primary-dark'
+                          : 'text-text-tertiary dark:text-text-tertiary-dark'
+                      }`}
+                    >
+                      {formatDate(value)}
+                    </Text>
+                  </Pressable>
+                  {value && (
+                    <Pressable
+                      onPress={() => onChange(undefined)}
+                      disabled={isSubmitting}
+                      className="px-3.5 py-3 bg-surface dark:bg-surface-dark border border-border dark:border-border-dark rounded-md active:opacity-70"
+                    >
+                      <Text className="font-pretendard text-base text-text-secondary dark:text-text-secondary-dark">
+                        지우기
+                      </Text>
+                    </Pressable>
+                  )}
+                </View>
                 {errors.endedAt && (
                   <Text className="font-pretendard text-xs text-danger mt-1">
                     {errors.endedAt.message}
                   </Text>
                 )}
+                <DateTimePickerModal
+                  isVisible={pickerOpen === 'ended'}
+                  mode="date"
+                  date={value ? new Date(value) : new Date()}
+                  onConfirm={(d) => {
+                    onChange(toIsoDate(d));
+                    setPickerOpen(null);
+                  }}
+                  onCancel={() => setPickerOpen(null)}
+                  locale="ko-KR"
+                  confirmTextIOS="선택"
+                  cancelTextIOS="취소"
+                />
               </View>
             )}
           />

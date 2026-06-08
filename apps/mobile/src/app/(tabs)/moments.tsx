@@ -16,9 +16,10 @@
 //   - mutation으로 invalidate 시 자동 refetch
 
 import { Link, useRouter } from 'expo-router';
-import { ActivityIndicator, FlatList, Pressable, Text, View } from 'react-native';
+import { FlatList, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { EmptyState, ErrorState, LoadingState } from '../../components/states';
 import { useMoments, type Moment } from '../../lib/moments';
 
 export default function MomentsScreen() {
@@ -34,29 +35,22 @@ export default function MomentsScreen() {
         <Pressable
           onPress={() => router.push('/moments/create' as never)}
           className="w-9 h-9 rounded-full bg-primary items-center justify-center active:opacity-80"
+          accessibilityRole="button"
+          accessibilityLabel="Moment 만들기"
+          accessibilityHint="새 Moment 생성 화면으로 이동"
         >
           <Text className="font-pretendard-semibold text-xl text-white leading-6">＋</Text>
         </Pressable>
       </View>
 
       {isLoading ? (
-        <View className="flex-1 items-center justify-center p-6">
-          <ActivityIndicator size="large" />
-        </View>
+        <LoadingState />
       ) : isError ? (
-        <View className="flex-1 items-center justify-center p-6">
-          <Text className="font-pretendard text-sm text-danger text-center mb-4">
-            불러오는 중 오류가 발생했어요
-            {'\n'}
-            {error instanceof Error ? error.message : ''}
-          </Text>
-          <Pressable
-            onPress={() => refetch()}
-            className="px-5 py-2.5 bg-primary rounded-md active:opacity-80"
-          >
-            <Text className="font-pretendard-semibold text-sm text-white">다시 시도</Text>
-          </Pressable>
-        </View>
+        <ErrorState
+          title="불러오는 중 오류가 발생했어요"
+          message={error instanceof Error ? error.message : undefined}
+          onRetry={() => refetch()}
+        />
       ) : (
         <FlatList
           data={data?.moments ?? []}
@@ -91,14 +85,10 @@ function MomentCard({ moment }: { moment: Moment }) {
 /** Moment 없을 때 empty state — "+" 안내. */
 function EmptyMoments() {
   return (
-    <View className="flex-1 items-center justify-center p-10">
-      <Text className="font-pretendard-medium text-base text-text-secondary dark:text-text-secondary-dark mb-2">
-        아직 박제된 순간이 없어요
-      </Text>
-      <Text className="font-pretendard text-sm text-text-tertiary dark:text-text-tertiary-dark text-center leading-5">
-        우측 상단 ＋ 버튼으로{'\n'}첫 Moment를 만들어보세요
-      </Text>
-    </View>
+    <EmptyState
+      title="아직 박제된 순간이 없어요"
+      description={'우측 상단 ＋ 버튼으로\n첫 Moment를 만들어보세요'}
+    />
   );
 }
 

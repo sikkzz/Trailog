@@ -99,7 +99,7 @@ import { NaverMapView, type NaverMapViewRef } from '@mj-studio/react-native-nave
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useMapPhotos, type Bbox } from '../../lib/photos';
@@ -176,18 +176,23 @@ export default function MapScreen() {
         // Balanced — 100m 정확도, 배터리 적당. High는 GPS hot, Highest는 fix 시간 ↑.
         // 사진 지도 탭 진입 직후 view center 정도엔 Balanced 충분.
         //
-        // Android Emulator 함정 (디버깅 박제): `adb emu geo fix`는 GPS provider만 mock하는데
-        // expo-location은 fused_location_provider 사용 → cache된 default(Google HQ) 반환 가능.
-        // 실 디바이스/iOS는 정상. Android Emulator 검증 시 Extended Controls → Location → SEND +
-        // Google Maps 앱 한 번 열어서 fused lock 강제 권장.
-        const pos = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        });
+        // Android Emulator 함정 (Phase 2 4.7 D2 디버깅 박제): `adb emu geo fix`는 GPS
+        // provider만 mock하는데 expo-location은 fused_location_provider 사용 → cache된
+        // default(Google HQ) 반환 가능. 실 디바이스/iOS는 정상.
+        //
+        // **D7 dev mock 우회**: __DEV__ + Android에서 mock 좌표(서울 시청) 직접 사용 —
+        // emulator fused 함정 회피. production iOS/Android + 실 디바이스는 영향 X.
+        // Trailog 도메인 한국 우선이라 서울 mock이 자연.
+        const coords =
+          __DEV__ && Platform.OS === 'android'
+            ? { latitude: 37.5665, longitude: 126.978 }
+            : (await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }))
+                .coords;
         if (cancelled) return;
 
         mapRef.current?.animateCameraTo({
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
+          latitude: coords.latitude,
+          longitude: coords.longitude,
           zoom: CURRENT_LOCATION_ZOOM,
         });
       } catch {
@@ -205,13 +210,15 @@ export default function MapScreen() {
     const { status } = await Location.requestForegroundPermissionsAsync();
     setPermissionStatus(status);
     if (status === Location.PermissionStatus.GRANTED) {
-      // 권한 새로 받았으면 같은 흐름 — 현재 위치 가져와 카메라 이동
-      const pos = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
+      // 권한 새로 받았으면 같은 흐름 — Android dev는 mock 좌표, 그 외는 실제 GPS
+      const coords =
+        __DEV__ && Platform.OS === 'android'
+          ? { latitude: 37.5665, longitude: 126.978 }
+          : (await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }))
+              .coords;
       mapRef.current?.animateCameraTo({
-        latitude: pos.coords.latitude,
-        longitude: pos.coords.longitude,
+        latitude: coords.latitude,
+        longitude: coords.longitude,
         zoom: CURRENT_LOCATION_ZOOM,
       });
     }

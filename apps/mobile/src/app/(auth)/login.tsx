@@ -167,6 +167,9 @@ export default function LoginScreen() {
             }`}
             onPress={handleSubmit(onSubmit)}
             disabled={isSubmitting}
+            accessibilityRole="button"
+            accessibilityLabel="로그인"
+            accessibilityState={{ disabled: isSubmitting, busy: isSubmitting }}
           >
             <Text className="font-pretendard-semibold text-base text-white">
               {isSubmitting ? '로그인 중...' : '로그인'}

@@ -144,6 +144,9 @@ export default function SignupScreen() {
             }`}
             onPress={handleSubmit(onSubmit)}
             disabled={isSubmitting}
+            accessibilityRole="button"
+            accessibilityLabel="회원가입"
+            accessibilityState={{ disabled: isSubmitting, busy: isSubmitting }}
           >
             <Text className="font-pretendard-semibold text-base text-white">
               {isSubmitting ? '가입 중...' : '회원가입'}

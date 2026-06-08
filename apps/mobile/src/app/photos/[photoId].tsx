@@ -48,7 +48,11 @@ export default function PhotoDetailScreen() {
   return (
     <SafeAreaView className="flex-1 bg-black">
       <View className="flex-row justify-between items-center px-5 py-3 bg-black/90">
-        <Pressable onPress={() => router.back()}>
+        <Pressable
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="닫기"
+        >
           <Text className="font-pretendard text-base text-white">닫기</Text>
         </Pressable>
         <Text className="font-pretendard-semibold text-base text-white">사진</Text>

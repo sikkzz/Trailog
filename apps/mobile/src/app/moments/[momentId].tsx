@@ -35,6 +35,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { EmptyState, ErrorState, LoadingState } from '../../components/states';
 import { useMoments } from '../../lib/moments';
 import {
   useMomentPhotos,
@@ -125,6 +126,10 @@ export default function MomentDetailScreen() {
           className={`px-3 py-1.5 bg-primary rounded-full active:opacity-80 ${
             isUploading ? 'opacity-50' : ''
           }`}
+          accessibilityRole="button"
+          accessibilityLabel={isUploading ? '사진 업로드 중' : '사진 추가'}
+          accessibilityHint="갤러리에서 사진 선택"
+          accessibilityState={{ disabled: isUploading, busy: isUploading }}
         >
           {isUploading ? (
             <ActivityIndicator size="small" color="#fff" />
@@ -171,19 +176,9 @@ export default function MomentDetailScreen() {
       )}
 
       {photosLoading ? (
-        <View className="flex-1 items-center justify-center p-6">
-          <ActivityIndicator size="large" />
-        </View>
+        <LoadingState />
       ) : photosError ? (
-        <View className="flex-1 items-center justify-center p-6">
-          <Text className="font-pretendard text-sm text-danger mb-4">사진을 불러오지 못했어요</Text>
-          <Pressable
-            onPress={() => refetchPhotos()}
-            className="px-5 py-2.5 bg-primary rounded-md active:opacity-80"
-          >
-            <Text className="font-pretendard-semibold text-sm text-white">다시 시도</Text>
-          </Pressable>
-        </View>
+        <ErrorState title="사진을 불러오지 못했어요" onRetry={() => refetchPhotos()} />
       ) : (
         <FlatList
           data={photosData?.photos ?? []}
@@ -263,13 +258,9 @@ function extractExt(asset: ImagePicker.ImagePickerAsset): AllowedPhotoExt | null
 
 function EmptyPhotos() {
   return (
-    <View className="flex-1 items-center justify-center p-10">
-      <Text className="font-pretendard-medium text-base text-text-secondary dark:text-text-secondary-dark mb-2">
-        아직 사진이 없어요
-      </Text>
-      <Text className="font-pretendard text-sm text-text-tertiary dark:text-text-tertiary-dark text-center leading-5">
-        우측 상단 ＋ 사진 버튼으로{'\n'}첫 사진을 올려보세요
-      </Text>
-    </View>
+    <EmptyState
+      title="아직 사진이 없어요"
+      description={'우측 상단 ＋ 사진 버튼으로\n첫 사진을 올려보세요'}
+    />
   );
 }
