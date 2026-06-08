@@ -44,6 +44,7 @@
     "expo-secure-store": "~56.0.4",
     "expo-splash-screen": "~56.0.10",
     "expo-status-bar": "^56.0.4",
+    "expo-system-ui": "~56.0.5",
     "expo-updates": "~56.0.17",
     "nativewind": "^4.2.5",
     "react": "^19.2.3",

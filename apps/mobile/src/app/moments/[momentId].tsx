@@ -1,40 +1,24 @@
 // moments/[momentId] — Moment 상세 화면. Moment 정보 + 사진 grid.
 //
-// 참조 코드 비교 + RN 기본 문법은 login.tsx 헤더 참고. 이 화면에서 새로 등장하는 것:
+// 참조 코드 비교 + RN 기본 문법은 login.tsx 헤더 참고.
+// Phase 2 4.8 D3-5 — StyleSheet → NativeWind 마이그레이션 (ADR-0011).
 //
-// =============================================================================
-// RN 기본 문법 추가 해설
-// =============================================================================
+// 이 화면에서 새로 등장하는 RN 패턴:
+//   - `<Image source={{uri}}>` / `expo-image` `<Image>` — 캐시 + blurhash + transition
+//   - `FlatList numColumns={3}` — 3열 grid
+//   - `Dimensions.get('window')` + `aspectRatio: 1` — 정사각 grid item
 //
-// | RN 컴포넌트/패턴             | 의미                                                                |
-// | ---------------------------- | ------------------------------------------------------------------- |
-// | `<Image source={{uri}}>`     | RN built-in. source는 객체 (`{uri}` / `require()`)                  |
-// | `expo-image` `<Image>`       | expo 권장 — 캐시 자동 + blurhash + transition + better perf         |
-// | `FlatList numColumns={3}`    | 3열 grid (CSS Grid 직접 없음 — FlatList의 numColumns로 grid 흉내)   |
-// | `Dimensions.get('window')`   | 화면 크기 — grid item width 계산 (web의 viewport 대응)              |
-// | `aspectRatio: 1`             | 정사각 비율 (web의 aspect-ratio CSS와 동일)                         |
-//
-// =============================================================================
-// processingStatus 분기 UI (Phase 2 4.4 도입)
-// =============================================================================
-//
+// processingStatus 분기 UI (Phase 2 4.4):
 //   - 'done'    → thumbnailUrls.small (정상 grid card)
-//   - 'pending' → originalUrl + "처리 중" overlay (사용자 대기 안내)
-//   - 'failed'  → originalUrl + "처리 실패" overlay (재시도는 Phase 후속)
+//   - 'pending' → originalUrl + "처리 중" overlay
+//   - 'failed'  → originalUrl + "처리 실패" overlay
 //
-// =============================================================================
-// 사진 업로드 흐름 (D4c)
-// =============================================================================
-//
-// 1. ＋사진 버튼 → ImagePicker.requestMediaLibraryPermissionsAsync() (권한 요청)
-// 2. ImagePicker.launchImageLibraryAsync() → 갤러리 modal → 사용자 선택
-// 3. asset.uri → fetch(uri).blob() (RN fetch는 file:// uri 지원)
-// 4. extension 추출 — asset.fileName → uri fallback (jpg/png/heic/webp만)
-// 5. useUploadPhoto mutation (createPresignedUploadUrl → R2 PUT → confirm)
-// 6. 성공 시 photosKeys.list 자동 invalidate → grid 자동 refresh (BullMQ 처리 대기 — pending 상태 표시)
-//
-// progress UI 단순화: mutation.isPending 동안 버튼 disabled + 상단 banner.
-// per-photo progress (XHR.upload.onprogress)는 후속 — RN fetch는 progress 미지원.
+// 사진 업로드 흐름 (D4c):
+//   1. ＋사진 버튼 → ImagePicker.requestMediaLibraryPermissionsAsync()
+//   2. ImagePicker.launchImageLibraryAsync() → 갤러리 modal → 사용자 선택
+//   3. extension 추출 (jpg/png/heic/webp만)
+//   4. useUploadPhoto mutation (presigned → R2 PUT → confirm)
+//   5. 성공 시 photosKeys.list invalidate → grid 자동 refresh (pending 상태 표시)
 
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
@@ -46,7 +30,6 @@ import {
   Dimensions,
   FlatList,
   Pressable,
-  StyleSheet,
   Text,
   View,
 } from 'react-native';
@@ -95,13 +78,11 @@ export default function MomentDetailScreen() {
 
   async function pickAndUpload() {
     try {
-      // 권한 요청 (iOS Info.plist NSPhotoLibraryUsageDescription, Android 자동)
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) {
         Alert.alert('권한 필요', '설정에서 사진 접근 권한을 허용해주세요');
         return;
       }
-      // 갤러리 모달 — 단일 사진 선택 (다중은 후속)
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         allowsMultipleSelection: false,
@@ -115,7 +96,6 @@ export default function MomentDetailScreen() {
         Alert.alert('지원 안 되는 형식', 'jpg/jpeg/png/heic/webp만 지원합니다');
         return;
       }
-      // expo-file-system.uploadAsync가 fileUri 그대로 받음 — blob 변환 불필요
       uploadMutation.mutate(
         { fileUri: asset.uri, ext },
         {
@@ -134,59 +114,74 @@ export default function MomentDetailScreen() {
   const isUploading = uploadMutation.isPending;
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+    <SafeAreaView className="flex-1 bg-background dark:bg-background-dark" edges={['top']}>
+      <View className="flex-row justify-between items-center px-5 py-3 border-b border-border dark:border-border-dark">
         <Pressable onPress={() => router.back()}>
-          <Text style={styles.back}>← 뒤로</Text>
+          <Text className="font-pretendard text-base text-primary">← 뒤로</Text>
         </Pressable>
         <Pressable
           onPress={pickAndUpload}
           disabled={isUploading}
-          style={({ pressed }) => [
-            styles.uploadButton,
-            pressed && styles.uploadButtonPressed,
-            isUploading && styles.uploadButtonDisabled,
-          ]}
+          className={`px-3 py-1.5 bg-primary rounded-full active:opacity-80 ${
+            isUploading ? 'opacity-50' : ''
+          }`}
         >
           {isUploading ? (
             <ActivityIndicator size="small" color="#fff" />
           ) : (
-            <Text style={styles.uploadButtonText}>＋ 사진</Text>
+            <Text className="font-pretendard-semibold text-sm text-white">＋ 사진</Text>
           )}
         </Pressable>
       </View>
 
       {isUploading && (
-        <View style={styles.uploadingBanner}>
-          <ActivityIndicator size="small" color="#1a73e8" />
-          <Text style={styles.uploadingText}>업로드 중...</Text>
+        <View className="flex-row items-center gap-2 px-4 py-2.5 bg-primary-50 dark:bg-primary-900">
+          <ActivityIndicator size="small" />
+          <Text className="font-pretendard-medium text-sm text-primary dark:text-primary-200">
+            업로드 중...
+          </Text>
         </View>
       )}
 
       {moment ? (
-        <View style={styles.momentInfo}>
-          <Text style={styles.title}>{moment.title}</Text>
+        <View className="px-4 pt-4 pb-3 border-b border-border dark:border-border-dark">
+          <Text className="font-pretendard-bold text-2xl text-text-primary dark:text-text-primary-dark mb-2">
+            {moment.title}
+          </Text>
           {moment.startedAt && (
-            <Text style={styles.meta}>시작: {moment.startedAt.slice(0, 10)}</Text>
+            <Text className="font-pretendard text-sm text-text-secondary dark:text-text-secondary-dark mb-0.5">
+              시작: {moment.startedAt.slice(0, 10)}
+            </Text>
           )}
-          {moment.endedAt && <Text style={styles.meta}>종료: {moment.endedAt.slice(0, 10)}</Text>}
-          <Text style={styles.meta}>작성: {moment.createdAt.slice(0, 10)}</Text>
+          {moment.endedAt && (
+            <Text className="font-pretendard text-sm text-text-secondary dark:text-text-secondary-dark mb-0.5">
+              종료: {moment.endedAt.slice(0, 10)}
+            </Text>
+          )}
+          <Text className="font-pretendard text-sm text-text-secondary dark:text-text-secondary-dark mb-0.5">
+            작성: {moment.createdAt.slice(0, 10)}
+          </Text>
         </View>
       ) : (
-        <View style={styles.momentInfo}>
-          <Text style={styles.notFound}>Moment를 찾을 수 없습니다 (id={momentId})</Text>
+        <View className="px-4 pt-4 pb-3 border-b border-border dark:border-border-dark">
+          <Text className="font-pretendard text-sm text-text-tertiary dark:text-text-tertiary-dark">
+            Moment를 찾을 수 없습니다 (id={momentId})
+          </Text>
         </View>
       )}
 
       {photosLoading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color="#1a73e8" />
+        <View className="flex-1 items-center justify-center p-6">
+          <ActivityIndicator size="large" />
         </View>
       ) : photosError ? (
-        <View style={styles.center}>
-          <Text style={styles.errorText}>사진을 불러오지 못했어요</Text>
-          <Pressable onPress={() => refetchPhotos()} style={styles.retryButton}>
-            <Text style={styles.retryText}>다시 시도</Text>
+        <View className="flex-1 items-center justify-center p-6">
+          <Text className="font-pretendard text-sm text-danger mb-4">사진을 불러오지 못했어요</Text>
+          <Pressable
+            onPress={() => refetchPhotos()}
+            className="px-5 py-2.5 bg-primary rounded-md active:opacity-80"
+          >
+            <Text className="font-pretendard-semibold text-sm text-white">다시 시도</Text>
           </Pressable>
         </View>
       ) : (
@@ -195,8 +190,13 @@ export default function MomentDetailScreen() {
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => <PhotoGridItem photo={item} momentId={momentId} />}
           numColumns={GRID_COLUMNS}
-          columnWrapperStyle={styles.row}
-          contentContainerStyle={styles.gridContent}
+          columnWrapperStyle={{ gap: GRID_GAP, marginBottom: GRID_GAP }}
+          contentContainerStyle={{
+            paddingHorizontal: 16,
+            paddingTop: 8,
+            paddingBottom: 24,
+            flexGrow: 1,
+          }}
           ListEmptyComponent={<EmptyPhotos />}
           onRefresh={handleRefresh}
           refreshing={isManualRefreshing}
@@ -212,29 +212,28 @@ export default function MomentDetailScreen() {
  *   - 'done' → thumbnailUrls.small (없으면 originalUrl)
  *   - 'pending'/'failed' → originalUrl + overlay
  *
- * 탭 시 photos/[photoId] 상세 진입 — momentId를 query param으로 전달
- * (상세 화면이 리스트 query 캐시에서 photo 객체 찾기 위해).
+ * 탭 시 photos/[photoId] 상세 진입 — momentId를 query param으로 전달.
  */
 function PhotoGridItem({ photo, momentId }: { photo: PhotoListItem; momentId: string }) {
   const router = useRouter();
-  // 썸네일이 있으면 small 우선, 없으면 원본 (큰 이미지 — 트래픽 ↑ but 표시 가능)
   const imageUri = photo.thumbnailUrls?.small ?? photo.originalUrl;
   const showOverlay = photo.processingStatus !== 'done';
 
   return (
     <Pressable
-      style={styles.gridItem}
+      style={{ width: ITEM_SIZE, aspectRatio: 1 }}
+      className="rounded overflow-hidden bg-surface dark:bg-surface-dark"
       onPress={() => router.push(`/photos/${photo.id}?momentId=${momentId}` as never)}
     >
       <Image
         source={{ uri: imageUri }}
-        style={styles.gridImage}
+        style={{ width: '100%', height: '100%' }}
         contentFit="cover"
         transition={200}
       />
       {showOverlay && (
-        <View style={styles.overlay}>
-          <Text style={styles.overlayText}>
+        <View className="absolute inset-0 bg-black/40 items-center justify-center">
+          <Text className="font-pretendard-semibold text-xs text-white">
             {photo.processingStatus === 'pending' ? '처리 중…' : '처리 실패'}
           </Text>
         </View>
@@ -264,84 +263,13 @@ function extractExt(asset: ImagePicker.ImagePickerAsset): AllowedPhotoExt | null
 
 function EmptyPhotos() {
   return (
-    <View style={styles.empty}>
-      <Text style={styles.emptyTitle}>아직 사진이 없어요</Text>
-      <Text style={styles.emptySubtitle}>우측 상단 ＋ 사진 버튼으로{'\n'}첫 사진을 올려보세요</Text>
+    <View className="flex-1 items-center justify-center p-10">
+      <Text className="font-pretendard-medium text-base text-text-secondary dark:text-text-secondary-dark mb-2">
+        아직 사진이 없어요
+      </Text>
+      <Text className="font-pretendard text-sm text-text-tertiary dark:text-text-tertiary-dark text-center leading-5">
+        우측 상단 ＋ 사진 버튼으로{'\n'}첫 사진을 올려보세요
+      </Text>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  back: { fontSize: 16, color: '#1a73e8' },
-  uploadButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: '#1a73e8',
-    borderRadius: 16,
-  },
-  uploadButtonPressed: { backgroundColor: '#155cb0' },
-  uploadButtonDisabled: { backgroundColor: '#9bb8e0' },
-  uploadButtonText: { color: '#fff', fontSize: 14, fontWeight: '600' },
-  uploadingBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    backgroundColor: '#eaf2ff',
-  },
-  uploadingText: { fontSize: 13, color: '#1a73e8', fontWeight: '500' },
-  momentInfo: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  title: { fontSize: 24, fontWeight: '700', color: '#1a1a1a', marginBottom: 8 },
-  meta: { fontSize: 13, color: '#666', marginBottom: 2 },
-  notFound: { fontSize: 14, color: '#888' },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  errorText: { fontSize: 14, color: '#e53935', marginBottom: 16 },
-  retryButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    backgroundColor: '#1a73e8',
-    borderRadius: 8,
-  },
-  retryText: { color: '#fff', fontSize: 14, fontWeight: '600' },
-  gridContent: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 24, flexGrow: 1 },
-  row: { gap: GRID_GAP, marginBottom: GRID_GAP },
-  gridItem: {
-    width: ITEM_SIZE,
-    aspectRatio: 1,
-    borderRadius: 4,
-    overflow: 'hidden',
-    backgroundColor: '#eee',
-  },
-  gridImage: { width: '100%', height: '100%' },
-  overlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  overlayText: { color: '#fff', fontSize: 12, fontWeight: '600' },
-  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 },
-  emptyTitle: { fontSize: 16, color: '#555', marginBottom: 8, fontWeight: '500' },
-  emptySubtitle: { fontSize: 14, color: '#999', textAlign: 'center', lineHeight: 20 },
-});

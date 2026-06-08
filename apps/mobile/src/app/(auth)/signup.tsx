@@ -1,11 +1,12 @@
 // (auth)/signup — 회원가입 화면.
 //
-// Login과 동일 패턴 (RHF + zodResolver + RN Controller) — endpoint만 /auth/sign-up.
-//
-// **참조 코드 비교 + RN 기본 문법 해설은 login.tsx 헤더 주석 참고** (중복 박제 회피).
+// Login과 동일 패턴 (RHF + zodResolver + RN Controller + NativeWind) — endpoint만 /auth/sign-up.
+// 참조 코드 비교 / RN 기본 문법 해설은 login.tsx 헤더 주석 참고 (중복 박제 회피).
 //
 // SignUpRequestSchema는 SignInRequestSchema와 거의 동일하지만 password에 max(72) 추가
 // (bcrypt 입력 한계 — 백엔드 검증과 일치).
+//
+// Phase 2 4.8 D3-1 — StyleSheet → NativeWind 마이그레이션 (ADR-0011).
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useRouter } from 'expo-router';
@@ -15,7 +16,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -64,23 +64,32 @@ export default function SignupScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView className="flex-1 bg-background dark:bg-background-dark">
       <KeyboardAvoidingView
-        style={styles.flex}
+        className="flex-1"
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={styles.content}>
-          <Text style={styles.title}>회원가입</Text>
-          <Text style={styles.subtitle}>이메일 + 비밀번호 (8자 이상)</Text>
+        <View className="flex-1 px-6 justify-center">
+          <Text className="font-pretendard-bold text-4xl text-text-primary dark:text-text-primary-dark mb-1">
+            회원가입
+          </Text>
+          <Text className="font-pretendard text-sm text-text-secondary dark:text-text-secondary-dark mb-8">
+            이메일 + 비밀번호 (8자 이상)
+          </Text>
 
           <Controller
             control={control}
             name="email"
             render={({ field: { value, onChange, onBlur } }) => (
-              <View style={styles.field}>
-                <Text style={styles.label}>이메일</Text>
+              <View className="mb-5">
+                <Text className="font-pretendard-medium text-sm text-text-secondary dark:text-text-secondary-dark mb-1.5">
+                  이메일
+                </Text>
                 <TextInput
-                  style={[styles.input, errors.email && styles.inputError]}
+                  className={`font-pretendard text-base bg-surface dark:bg-surface-dark text-text-primary dark:text-text-primary-dark border rounded-md px-3.5 py-3 ${
+                    errors.email ? 'border-danger' : 'border-border dark:border-border-dark'
+                  }`}
+                  placeholderTextColor="#999"
                   value={value}
                   onChangeText={onChange}
                   onBlur={onBlur}
@@ -90,7 +99,11 @@ export default function SignupScreen() {
                   keyboardType="email-address"
                   editable={!isSubmitting}
                 />
-                {errors.email && <Text style={styles.error}>{errors.email.message}</Text>}
+                {errors.email && (
+                  <Text className="font-pretendard text-xs text-danger mt-1">
+                    {errors.email.message}
+                  </Text>
+                )}
               </View>
             )}
           />
@@ -99,10 +112,15 @@ export default function SignupScreen() {
             control={control}
             name="password"
             render={({ field: { value, onChange, onBlur } }) => (
-              <View style={styles.field}>
-                <Text style={styles.label}>비밀번호</Text>
+              <View className="mb-5">
+                <Text className="font-pretendard-medium text-sm text-text-secondary dark:text-text-secondary-dark mb-1.5">
+                  비밀번호
+                </Text>
                 <TextInput
-                  style={[styles.input, errors.password && styles.inputError]}
+                  className={`font-pretendard text-base bg-surface dark:bg-surface-dark text-text-primary dark:text-text-primary-dark border rounded-md px-3.5 py-3 ${
+                    errors.password ? 'border-danger' : 'border-border dark:border-border-dark'
+                  }`}
+                  placeholderTextColor="#999"
                   value={value}
                   onChangeText={onChange}
                   onBlur={onBlur}
@@ -111,27 +129,33 @@ export default function SignupScreen() {
                   autoComplete="new-password"
                   editable={!isSubmitting}
                 />
-                {errors.password && <Text style={styles.error}>{errors.password.message}</Text>}
+                {errors.password && (
+                  <Text className="font-pretendard text-xs text-danger mt-1">
+                    {errors.password.message}
+                  </Text>
+                )}
               </View>
             )}
           />
 
           <Pressable
-            style={({ pressed }) => [
-              styles.button,
-              pressed && styles.buttonPressed,
-              isSubmitting && styles.buttonDisabled,
-            ]}
+            className={`bg-primary rounded-md py-3.5 items-center mt-3 active:opacity-80 ${
+              isSubmitting ? 'opacity-50' : ''
+            }`}
             onPress={handleSubmit(onSubmit)}
             disabled={isSubmitting}
           >
-            <Text style={styles.buttonText}>{isSubmitting ? '가입 중...' : '회원가입'}</Text>
+            <Text className="font-pretendard-semibold text-base text-white">
+              {isSubmitting ? '가입 중...' : '회원가입'}
+            </Text>
           </Pressable>
 
-          <View style={styles.linkRow}>
-            <Text style={styles.linkPrompt}>이미 계정이 있으세요?</Text>
-            <Link href={'/(auth)/login' as never} style={styles.link}>
-              <Text style={styles.linkText}>로그인</Text>
+          <View className="flex-row justify-center mt-6 gap-1.5">
+            <Text className="font-pretendard text-sm text-text-secondary dark:text-text-secondary-dark">
+              이미 계정이 있으세요?
+            </Text>
+            <Link href={'/(auth)/login' as never}>
+              <Text className="font-pretendard-semibold text-sm text-primary">로그인</Text>
             </Link>
           </View>
         </View>
@@ -139,38 +163,3 @@ export default function SignupScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  flex: { flex: 1 },
-  content: { flex: 1, padding: 24, justifyContent: 'center' },
-  title: { fontSize: 32, fontWeight: '700', color: '#1a1a1a', marginBottom: 4 },
-  subtitle: { fontSize: 14, color: '#666', marginBottom: 32 },
-  field: { marginBottom: 20 },
-  label: { fontSize: 13, color: '#555', marginBottom: 6, fontWeight: '500' },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
-    backgroundColor: '#fafafa',
-  },
-  inputError: { borderColor: '#e53935' },
-  error: { fontSize: 12, color: '#e53935', marginTop: 4 },
-  button: {
-    backgroundColor: '#1a73e8',
-    borderRadius: 8,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginTop: 12,
-  },
-  buttonPressed: { backgroundColor: '#155cb0' },
-  buttonDisabled: { backgroundColor: '#9bb8e0' },
-  buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  linkRow: { flexDirection: 'row', justifyContent: 'center', marginTop: 24, gap: 6 },
-  linkPrompt: { fontSize: 14, color: '#666' },
-  link: {},
-  linkText: { fontSize: 14, color: '#1a73e8', fontWeight: '600' },
-});

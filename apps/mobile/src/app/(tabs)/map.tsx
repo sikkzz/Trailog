@@ -242,25 +242,34 @@ export default function MapScreen() {
         ]}
       />
       {permissionStatus === Location.PermissionStatus.DENIED && (
-        <View style={styles.banner}>
-          <Text style={styles.bannerTitle}>위치 권한이 거부되어 있어요</Text>
-          <Text style={styles.bannerDesc}>현재 위치를 지도에 표시하려면 권한이 필요해요.</Text>
-          <View style={styles.bannerActions}>
+        <View
+          className="absolute bottom-6 left-4 right-4 bg-surface dark:bg-surface-dark rounded-lg p-4"
+          style={{
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.15,
+            shadowRadius: 8,
+            elevation: 4,
+          }}
+        >
+          <Text className="font-pretendard-bold text-base text-text-primary dark:text-text-primary-dark mb-1">
+            위치 권한이 거부되어 있어요
+          </Text>
+          <Text className="font-pretendard text-sm text-text-secondary dark:text-text-secondary-dark mb-3">
+            현재 위치를 지도에 표시하려면 권한이 필요해요.
+          </Text>
+          <View className="flex-row gap-2">
             <Pressable
-              style={({ pressed }) => [styles.bannerButton, pressed && styles.bannerButtonPressed]}
+              className="flex-1 bg-primary py-2.5 rounded-md items-center active:opacity-70"
               onPress={handleRetryPermission}
             >
-              <Text style={styles.bannerButtonText}>다시 요청</Text>
+              <Text className="font-pretendard-semibold text-sm text-white">다시 요청</Text>
             </Pressable>
             <Pressable
-              style={({ pressed }) => [
-                styles.bannerButton,
-                styles.bannerButtonSecondary,
-                pressed && styles.bannerButtonPressed,
-              ]}
+              className="flex-1 bg-neutral-500 py-2.5 rounded-md items-center active:opacity-70"
               onPress={() => Linking.openSettings()}
             >
-              <Text style={styles.bannerButtonText}>설정 열기</Text>
+              <Text className="font-pretendard-semibold text-sm text-white">설정 열기</Text>
             </Pressable>
           </View>
         </View>
@@ -272,31 +281,4 @@ export default function MapScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
   map: { flex: 1 },
-  banner: {
-    position: 'absolute',
-    bottom: 24,
-    left: 16,
-    right: 16,
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  bannerTitle: { fontSize: 16, fontWeight: '700', color: '#1a1a1a', marginBottom: 4 },
-  bannerDesc: { fontSize: 13, color: '#666', marginBottom: 12 },
-  bannerActions: { flexDirection: 'row', gap: 8 },
-  bannerButton: {
-    flex: 1,
-    backgroundColor: '#1a73e8',
-    paddingVertical: 10,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  bannerButtonSecondary: { backgroundColor: '#888' },
-  bannerButtonPressed: { opacity: 0.7 },
-  bannerButtonText: { color: '#fff', fontSize: 14, fontWeight: '600' },
 });

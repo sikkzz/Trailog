@@ -30,7 +30,7 @@
 
 import { useRouter } from 'expo-router';
 import { useEffect } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 
 import { authStorage } from '../lib/auth';
 
@@ -54,18 +54,12 @@ export default function HomeScreen() {
     return () => {
       cancelled = true;
     };
-    // router는 expo-router의 stable reference — deps 누락 안전.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [router]);
 
   // 분기 결정 전 짧은 로딩 (대부분 ms 단위 — router.replace 후 화면 자동 전환).
   return (
-    <View style={styles.container}>
-      <ActivityIndicator size="large" color="#1a73e8" />
+    <View className="flex-1 items-center justify-center bg-background dark:bg-background-dark">
+      <ActivityIndicator size="large" className="text-primary" />
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
-});

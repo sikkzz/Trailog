@@ -1,11 +1,11 @@
 // moments/create — 새 Moment 생성 화면.
 //
 // 참조 코드 비교 + RN 기본 문법 해설은 login.tsx 헤더 참고.
+// Phase 2 4.8 D3-4 — StyleSheet → NativeWind 마이그레이션 (ADR-0011).
 //
-// ⚠️ 임시 UI — UI/UX 폴리시 wave에 정정 예정 (메모리 `ui-ux-polish-wave-revisit`):
+// ⚠️ 임시 UI — UI/UX 폴리시 wave 후속 정정:
 //   - 시작/종료 input: raw ISO 8601 string → DatePicker (`@react-native-community/datetimepicker`)
-//   - 색상/spacing/typography: design system 정착 시 통일
-//   - 전체 화면 시각 디자인 폴리시 wave에서 일괄 (Phase 2 4.7 종료 후 예정)
+//     (D4 별도 단계 예정)
 //
 // 이 화면 학습 포인트 — react-query mutation 흐름:
 //   1. mutation.mutate(body) 호출
@@ -21,7 +21,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -67,35 +66,48 @@ export default function CreateMomentScreen() {
   const isSubmitting = createMutation.isPending;
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView className="flex-1 bg-background dark:bg-background-dark" edges={['top']}>
       <KeyboardAvoidingView
-        style={styles.flex}
+        className="flex-1"
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={styles.header}>
+        <View className="flex-row justify-between items-center px-5 py-3 border-b border-border dark:border-border-dark">
           <Pressable onPress={() => router.back()}>
-            <Text style={styles.cancel}>취소</Text>
+            <Text className="font-pretendard text-base text-text-secondary dark:text-text-secondary-dark">
+              취소
+            </Text>
           </Pressable>
-          <Text style={styles.headerTitle}>새 Moment</Text>
-          <View style={{ width: 40 }} />
+          <Text className="font-pretendard-semibold text-base text-text-primary dark:text-text-primary-dark">
+            새 Moment
+          </Text>
+          <View className="w-10" />
         </View>
 
-        <View style={styles.content}>
+        <View className="flex-1 p-6">
           <Controller
             control={control}
             name="title"
             render={({ field: { value, onChange, onBlur } }) => (
-              <View style={styles.field}>
-                <Text style={styles.label}>제목</Text>
+              <View className="mb-5">
+                <Text className="font-pretendard-medium text-sm text-text-secondary dark:text-text-secondary-dark mb-1.5">
+                  제목
+                </Text>
                 <TextInput
-                  style={[styles.input, errors.title && styles.inputError]}
+                  className={`font-pretendard text-base bg-surface dark:bg-surface-dark text-text-primary dark:text-text-primary-dark border rounded-md px-3.5 py-3 ${
+                    errors.title ? 'border-danger' : 'border-border dark:border-border-dark'
+                  }`}
+                  placeholderTextColor="#999"
                   value={value}
                   onChangeText={onChange}
                   onBlur={onBlur}
                   placeholder="도쿄 여행, 성수 ABC 카페, 한강 산책 ..."
                   editable={!isSubmitting}
                 />
-                {errors.title && <Text style={styles.error}>{errors.title.message}</Text>}
+                {errors.title && (
+                  <Text className="font-pretendard text-xs text-danger mt-1">
+                    {errors.title.message}
+                  </Text>
+                )}
               </View>
             )}
           />
@@ -104,10 +116,15 @@ export default function CreateMomentScreen() {
             control={control}
             name="startedAt"
             render={({ field: { value, onChange, onBlur } }) => (
-              <View style={styles.field}>
-                <Text style={styles.label}>시작 (선택, ISO 8601)</Text>
+              <View className="mb-5">
+                <Text className="font-pretendard-medium text-sm text-text-secondary dark:text-text-secondary-dark mb-1.5">
+                  시작 (선택, ISO 8601)
+                </Text>
                 <TextInput
-                  style={[styles.input, errors.startedAt && styles.inputError]}
+                  className={`font-pretendard text-base bg-surface dark:bg-surface-dark text-text-primary dark:text-text-primary-dark border rounded-md px-3.5 py-3 ${
+                    errors.startedAt ? 'border-danger' : 'border-border dark:border-border-dark'
+                  }`}
+                  placeholderTextColor="#999"
                   value={value ?? ''}
                   onChangeText={onChange}
                   onBlur={onBlur}
@@ -115,7 +132,11 @@ export default function CreateMomentScreen() {
                   autoCapitalize="none"
                   editable={!isSubmitting}
                 />
-                {errors.startedAt && <Text style={styles.error}>{errors.startedAt.message}</Text>}
+                {errors.startedAt && (
+                  <Text className="font-pretendard text-xs text-danger mt-1">
+                    {errors.startedAt.message}
+                  </Text>
+                )}
               </View>
             )}
           />
@@ -124,10 +145,15 @@ export default function CreateMomentScreen() {
             control={control}
             name="endedAt"
             render={({ field: { value, onChange, onBlur } }) => (
-              <View style={styles.field}>
-                <Text style={styles.label}>종료 (선택, ISO 8601)</Text>
+              <View className="mb-5">
+                <Text className="font-pretendard-medium text-sm text-text-secondary dark:text-text-secondary-dark mb-1.5">
+                  종료 (선택, ISO 8601)
+                </Text>
                 <TextInput
-                  style={[styles.input, errors.endedAt && styles.inputError]}
+                  className={`font-pretendard text-base bg-surface dark:bg-surface-dark text-text-primary dark:text-text-primary-dark border rounded-md px-3.5 py-3 ${
+                    errors.endedAt ? 'border-danger' : 'border-border dark:border-border-dark'
+                  }`}
+                  placeholderTextColor="#999"
                   value={value ?? ''}
                   onChangeText={onChange}
                   onBlur={onBlur}
@@ -135,66 +161,32 @@ export default function CreateMomentScreen() {
                   autoCapitalize="none"
                   editable={!isSubmitting}
                 />
-                {errors.endedAt && <Text style={styles.error}>{errors.endedAt.message}</Text>}
+                {errors.endedAt && (
+                  <Text className="font-pretendard text-xs text-danger mt-1">
+                    {errors.endedAt.message}
+                  </Text>
+                )}
               </View>
             )}
           />
 
-          <Text style={styles.helper}>단발 방문이면 시작/종료 둘 다 비워도 OK</Text>
+          <Text className="font-pretendard text-xs text-text-tertiary dark:text-text-tertiary-dark mb-6">
+            단발 방문이면 시작/종료 둘 다 비워도 OK
+          </Text>
 
           <Pressable
-            style={({ pressed }) => [
-              styles.button,
-              pressed && styles.buttonPressed,
-              isSubmitting && styles.buttonDisabled,
-            ]}
+            className={`bg-primary rounded-md py-3.5 items-center active:opacity-80 ${
+              isSubmitting ? 'opacity-50' : ''
+            }`}
             onPress={handleSubmit(onSubmit)}
             disabled={isSubmitting}
           >
-            <Text style={styles.buttonText}>{isSubmitting ? '만드는 중...' : '만들기'}</Text>
+            <Text className="font-pretendard-semibold text-base text-white">
+              {isSubmitting ? '만드는 중...' : '만들기'}
+            </Text>
           </Pressable>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  flex: { flex: 1 },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  headerTitle: { fontSize: 16, fontWeight: '600' },
-  cancel: { fontSize: 16, color: '#666' },
-  content: { flex: 1, padding: 24 },
-  field: { marginBottom: 20 },
-  label: { fontSize: 13, color: '#555', marginBottom: 6, fontWeight: '500' },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
-    backgroundColor: '#fafafa',
-  },
-  inputError: { borderColor: '#e53935' },
-  error: { fontSize: 12, color: '#e53935', marginTop: 4 },
-  helper: { fontSize: 12, color: '#999', marginBottom: 24 },
-  button: {
-    backgroundColor: '#1a73e8',
-    borderRadius: 8,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  buttonPressed: { backgroundColor: '#155cb0' },
-  buttonDisabled: { backgroundColor: '#9bb8e0' },
-  buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-});
