@@ -422,3 +422,81 @@ if (block.type === 'child_page' && !block.archived) {
   → 이후 ID로 직접 `notion.pages.update(id)` → title/archive/이동 무관 (실세계 sync 패턴의 정답)
 - **markdown 파서 외부 라이브러리 도입** (`@tryfabric/martian`) — 자체 파서 폐기로 그 영역 fragility 종료
 - ADR-0005 재검토 노트 + 마이그레이션 commit 분리
+
+---
+
+## 추가 학습 — 2026-06-09: `@tryfabric/martian` 전환 (자체 markdown 파서 폐기)
+
+### 트리거
+
+자체 파서 fix 7회 누적 (도입 후 1년 — 매번 새 edge case):
+
+| 시점               | fix                                       | 원인                                |
+| ------------------ | ----------------------------------------- | ----------------------------------- |
+| b611d8b            | JWT link 형식 정정                        | 자체 정규식 link 파서 한계          |
+| 89f4c91            | retry wrapper                             | Notion API 502/503/429              |
+| 2026-06-01         | archived 필터                             | title-based upsert 한계             |
+| 2026-06-08 dbfbb9a | `./memory` link 4건                       | 자체 파서가 invalid URL 그대로 박음 |
+| 2026-06-08 a518e4f | `[photoId](사진 강조...)` markdown 오해석 | 자체 inline 파서가 link로 잘못 해석 |
+
+본인 답답함 직접 표현 → 메모리 `notion-sync-rearchitect-revisit` 박힘.
+**근본 원인 = 자체 markdown 파서가 GFM 표준 + Notion API edge case를 매번 따라잡지 못함.**
+
+### 해결책 — `@tryfabric/martian` v1.2.4 채택
+
+- **remark-parse** 기반 GFM 표준 markdown 파서
+- **Notion API 호환** block 구조로 변환 (instantish 출신 + 활성 유지보수)
+- **notionLimits** 옵션 — rich_text 2000자 / blocks 100개 한계 자동 처리 + `onError` callback
+- **strictImageUrls** 옵션 — image URL 검증
+
+### 적용 결과
+
+- **자체 파서 통째로 제거**: `tokenizeInline` + `parseInline` + `markdownToBlocks` + `chunkText` + `makeRichText` + `normalizeLanguage` + `parseTableRow` + `NOTION_LANGUAGES` + `LANG_ALIAS` 등 **~340 lines → ~25 lines wrapper**.
+- **sync-to-notion.mjs**: 699 → 387 lines (~312 line 절감, **45% 감소**).
+- 책임 분리: 본 스크립트는 **Notion API orchestration** (그룹 페이지 매핑, retry, rate limit, upsert) 만 담당. markdown 변환은 검증된 lib에 위임.
+
+### 코드 — 자체 → martian 1줄 변환
+
+```javascript
+// Before — 자체 파서 (~340 lines)
+function tokenizeInline(text) { ... }
+function parseInline(text) { ... }
+function markdownToBlocks(md) {
+  // 코드블록/제목/인용/체크박스/리스트/표/단락 등 직접 파싱
+  ...
+}
+
+// After — martian wrapper (~15 lines)
+import { markdownToBlocks as martianMarkdownToBlocks } from '@tryfabric/martian';
+
+function markdownToBlocks(md) {
+  return martianMarkdownToBlocks(md, {
+    notionLimits: {
+      truncate: true,
+      onError: (err) => console.warn(`    ⚠️  martian limit: ${err.message}`),
+    },
+    strictImageUrls: true,
+  });
+}
+```
+
+### 잔여 영역 — `notion_page_id` frontmatter 정착은 별도
+
+메모리 박혔던 두 번째 처방 (`frontmatter notion_page_id` + CI commit back)은 별도 트리거:
+
+- **martian만으로도 fix 7회 원인 대부분 해소** — markdown 파서 fragility 종료
+- title-based upsert는 여전 사용 중. archived 필터로 edge case 처리.
+- 실제 archive/이동/title 변경 등 사용 시점에 다시 트리거 검토 (대규모 문서 정리 시점).
+
+### 학습 — 자체 구현 vs 외부 lib 결정 기준
+
+ADR-0005 결정 시점엔 "자체 스크립트 학습 가치" 핵심. 그 학습은 이미 충분 — Notion API + markdown 파서 직접 구현 경험 완료.
+**유지보수 비용**이 학습 가치를 압도하는 시점에 외부 lib 전환이 자연. **fix 누적 횟수** + **본인 답답함 표현**이 시점 시그널.
+
+### 함정 + 박제
+
+1. **invalid markdown link는 martian이 그대로 박음** — Notion API에서 "Invalid URL" 에러 throw. 본 스크립트가 잡아 표시. 단 markdown 자체에 깨진 link는 docs 단에서 정정 필요 (link → backtick).
+2. **`notionLimits.truncate: true`** — Notion 한계 초과 시 자동 truncation. 콘텐츠 손실 가능성이라 `onError` callback으로 경고 표시.
+3. **`strictImageUrls: true`** — image URL 검증 → 외부 image 안 박는 docs (마크다운 inline image X)에선 영향 X.
+4. **dependency 늘어남** — remark-parse + remark-gfm + remark-math + unified 등 dev 의존성 ↑. devDep에만 박혀 production 영향 X.
+5. **block 수 차이** — 같은 markdown이라도 martian이 paragraph merging 등으로 자체 파서 대비 ~15~20% 더 적게 박음 (PROJECT_ROOT 237 → 195 blocks). 효율 ↑.

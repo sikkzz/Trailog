@@ -15,6 +15,7 @@
 // 학습 노트: docs/learnings/notion-sync-automation.md
 
 import { Client } from '@notionhq/client';
+import { markdownToBlocks as martianMarkdownToBlocks } from '@tryfabric/martian';
 import matter from 'gray-matter';
 import { readFile, readdir } from 'node:fs/promises';
 import { join, basename, extname } from 'node:path';
@@ -59,10 +60,9 @@ const DOCS_ROOT = join(REPO_ROOT, 'docs');
 // Notion rate limit: 3 req/s. 안전하게 350ms 간격.
 const RATE_LIMIT_DELAY_MS = 350;
 
-// Notion API 제약
-const MAX_BLOCKS_PER_REQUEST = 100; // children 한 번에 100개까지
-const MAX_RICH_TEXT_LENGTH = 2000; // 한 rich_text 객체 최대 2000자
-const MAX_TEXT_BLOCK_LENGTH = 2000;
+// Notion API 제약 — children 한 번에 100개까지 (페이지 append시 chunking)
+// rich_text / block content 한계(2000자)는 martian이 자체 처리.
+const MAX_BLOCKS_PER_REQUEST = 100;
 
 // 폴더 → Notion 그룹 페이지 매핑
 const FOLDER_GROUPS = [
@@ -122,343 +122,31 @@ async function rateLimit() {
   await sleep(RATE_LIMIT_DELAY_MS);
 }
 
-function chunkText(text, max = MAX_RICH_TEXT_LENGTH) {
-  if (text.length <= max) return [text];
-  const chunks = [];
-  for (let i = 0; i < text.length; i += max) chunks.push(text.slice(i, i + max));
-  return chunks;
-}
+// ----- Markdown → Notion blocks 변환 (@tryfabric/martian) -----
+//
+// 이전엔 자체 markdown 파서(~340 lines)를 박았는데 fix 7회 누적 (URL escape, table cell,
+// nested list, mermaid block 등) — Notion API 변경/edge case마다 깨짐. martian은
+// remark-parse 기반 GFM 표준 + Notion API 호환 검증된 라이브러리. 자체 parser 통째로 제거.
+//
+// martian 옵션:
+//   - notionLimits.truncate: true → Notion API 한계(rich_text 2000, blocks 100 등) 자동
+//     truncation. false면 throw, callback 받으려면 onError 박기.
+//   - strictImageUrls: true → image URL 검증 (image src valid 확인). 외부 link는 영향 X.
+//
+// invalid URL 처리 — markdown의 `[text](invalid)` 같은 깨진 link는 martian이 그대로
+// Notion API에 보냄. Notion이 "Invalid URL for link" 에러 → 본 스크립트가 잡아 표시.
+// 단 markdown 자체에 깨진 link 박힘 → docs 단에서 정정 필요 (link → backtick 등).
 
-// ----- Markdown → Notion blocks 변환 -----
-
-function makeRichText({ text, link, bold, italic, code, strikethrough }) {
-  return chunkText(text).map((chunk) => ({
-    type: 'text',
-    text: { content: chunk, link: link ? { url: link } : null },
-    annotations: {
-      bold: bold ?? false,
-      italic: italic ?? false,
-      strikethrough: strikethrough ?? false,
-      underline: false,
-      code: code ?? false,
-      color: 'default',
-    },
-  }));
-}
-
-// 인라인 마크다운 토큰화. 정규식 기반 단순 파서 (중첩 X 가정).
-function tokenizeInline(text) {
-  const PATTERNS = [
-    { re: /`([^`]+)`/, fmt: (m) => ({ text: m[1], code: true }) },
-    { re: /!\[([^\]]*)\]\(([^)]+)\)/, fmt: (m) => ({ text: m[1] || m[2], link: m[2] }) },
-    { re: /\[([^\]]+)\]\(([^)]+)\)/, fmt: (m) => ({ text: m[1], link: m[2] }) },
-    { re: /\*\*([^*]+)\*\*/, fmt: (m) => ({ text: m[1], bold: true }) },
-    { re: /__([^_]+)__/, fmt: (m) => ({ text: m[1], bold: true }) },
-    { re: /(?<![*\w])\*([^*\s][^*]*?)\*(?!\w)/, fmt: (m) => ({ text: m[1], italic: true }) },
-    { re: /~~([^~]+)~~/, fmt: (m) => ({ text: m[1], strikethrough: true }) },
-  ];
-
-  const tokens = [];
-  let remaining = text;
-
-  while (remaining.length > 0) {
-    let earliest = null;
-    let earliestIdx = remaining.length;
-    let earliestPattern = null;
-
-    for (const p of PATTERNS) {
-      const m = remaining.match(p.re);
-      if (m && m.index < earliestIdx) {
-        earliestIdx = m.index;
-        earliest = m;
-        earliestPattern = p;
-      }
-    }
-
-    if (earliest === null) {
-      tokens.push({ text: remaining });
-      break;
-    }
-    if (earliestIdx > 0) tokens.push({ text: remaining.slice(0, earliestIdx) });
-    tokens.push(earliestPattern.fmt(earliest));
-    remaining = remaining.slice(earliestIdx + earliest[0].length);
-  }
-
-  return tokens;
-}
-
-function parseInline(text) {
-  const richTexts = [];
-  for (const t of tokenizeInline(text)) {
-    if (t.text === '') continue;
-    richTexts.push(...makeRichText(t));
-  }
-  return richTexts.length > 0 ? richTexts : [{ type: 'text', text: { content: '' } }];
-}
-
-// Notion 코드 블록 지원 언어 (일부만 — 자주 쓰는 것 위주)
-const NOTION_LANGUAGES = new Set([
-  'bash',
-  'c',
-  'c#',
-  'c++',
-  'css',
-  'docker',
-  'go',
-  'graphql',
-  'html',
-  'java',
-  'javascript',
-  'json',
-  'kotlin',
-  'makefile',
-  'markdown',
-  'mermaid',
-  'objective-c',
-  'php',
-  'plain text',
-  'powershell',
-  'python',
-  'ruby',
-  'rust',
-  'scala',
-  'shell',
-  'sql',
-  'swift',
-  'typescript',
-  'xml',
-  'yaml',
-]);
-
-const LANG_ALIAS = {
-  js: 'javascript',
-  ts: 'typescript',
-  tsx: 'typescript',
-  jsx: 'javascript',
-  sh: 'shell',
-  zsh: 'shell',
-  yml: 'yaml',
-  md: 'markdown',
-  py: 'python',
-  rb: 'ruby',
-  rs: 'rust',
-  kt: 'kotlin',
-  dockerfile: 'docker',
-  '': 'plain text',
-};
-
-function normalizeLanguage(lang) {
-  const l = lang.toLowerCase().trim();
-  const aliased = LANG_ALIAS[l] ?? l;
-  return NOTION_LANGUAGES.has(aliased) ? aliased : 'plain text';
-}
-
-function parseTableRow(line) {
-  return line
-    .trim()
-    .replace(/^\||\|$/g, '')
-    .split('|')
-    .map((c) => c.trim());
-}
-
-// 마크다운 본문 → Notion blocks
 function markdownToBlocks(md) {
-  const blocks = [];
-  const lines = md.split('\n');
-  let i = 0;
-
-  while (i < lines.length) {
-    const line = lines[i];
-
-    if (line.trim() === '') {
-      i += 1;
-      continue;
-    }
-
-    // 코드 블록 ```
-    if (line.startsWith('```')) {
-      const lang = line.slice(3).trim();
-      const codeLines = [];
-      i += 1;
-      while (i < lines.length && !lines[i].startsWith('```')) {
-        codeLines.push(lines[i]);
-        i += 1;
-      }
-      i += 1;
-      const code = codeLines.join('\n');
-      blocks.push({
-        object: 'block',
-        type: 'code',
-        code: {
-          rich_text: [{ type: 'text', text: { content: code.slice(0, MAX_TEXT_BLOCK_LENGTH) } }],
-          language: normalizeLanguage(lang),
-        },
-      });
-      continue;
-    }
-
-    // 제목 H1~H3
-    const headingMatch = line.match(/^(#{1,3})\s+(.+)$/);
-    if (headingMatch) {
-      const level = headingMatch[1].length;
-      blocks.push({
-        object: 'block',
-        type: `heading_${level}`,
-        [`heading_${level}`]: {
-          rich_text: parseInline(headingMatch[2]),
-          is_toggleable: false,
-        },
-      });
-      i += 1;
-      continue;
-    }
-
-    // H4+ (Notion 미지원) → bold paragraph fallback
-    const h4Match = line.match(/^#{4,}\s+(.+)$/);
-    if (h4Match) {
-      blocks.push({
-        object: 'block',
-        type: 'paragraph',
-        paragraph: {
-          rich_text: [
-            {
-              type: 'text',
-              text: { content: h4Match[1] },
-              annotations: { bold: true, color: 'default' },
-            },
-          ],
-        },
-      });
-      i += 1;
-      continue;
-    }
-
-    // 구분선
-    if (/^---+$/.test(line.trim()) || /^___+$/.test(line.trim())) {
-      blocks.push({ object: 'block', type: 'divider', divider: {} });
-      i += 1;
-      continue;
-    }
-
-    // 인용 (연속된 > 라인)
-    if (line.startsWith('> ') || line.trim() === '>') {
-      const quoteLines = [];
-      while (i < lines.length && (lines[i].startsWith('> ') || lines[i].trim() === '>')) {
-        quoteLines.push(lines[i].replace(/^>\s?/, ''));
-        i += 1;
-      }
-      blocks.push({
-        object: 'block',
-        type: 'quote',
-        quote: { rich_text: parseInline(quoteLines.join('\n')) },
-      });
-      continue;
-    }
-
-    // 체크박스
-    const todoMatch = line.match(/^\s*-\s+\[([ xX])\]\s+(.+)$/);
-    if (todoMatch) {
-      blocks.push({
-        object: 'block',
-        type: 'to_do',
-        to_do: {
-          rich_text: parseInline(todoMatch[2]),
-          checked: todoMatch[1].toLowerCase() === 'x',
-        },
-      });
-      i += 1;
-      continue;
-    }
-
-    // 글머리 기호
-    const bulletMatch = line.match(/^\s*[-*+]\s+(.+)$/);
-    if (bulletMatch) {
-      blocks.push({
-        object: 'block',
-        type: 'bulleted_list_item',
-        bulleted_list_item: { rich_text: parseInline(bulletMatch[1]) },
-      });
-      i += 1;
-      continue;
-    }
-
-    // 번호 리스트
-    const numberedMatch = line.match(/^\s*\d+\.\s+(.+)$/);
-    if (numberedMatch) {
-      blocks.push({
-        object: 'block',
-        type: 'numbered_list_item',
-        numbered_list_item: { rich_text: parseInline(numberedMatch[1]) },
-      });
-      i += 1;
-      continue;
-    }
-
-    // 표
-    if (
-      line.startsWith('|') &&
-      i + 1 < lines.length &&
-      /^\|[\s\-:|]+\|$/.test(lines[i + 1].trim())
-    ) {
-      const tableRows = [];
-      while (i < lines.length && lines[i].startsWith('|')) {
-        tableRows.push(lines[i]);
-        i += 1;
-      }
-      const header = parseTableRow(tableRows[0]);
-      const dataRows = tableRows.slice(2).map(parseTableRow); // [1]은 정렬 표시 무시
-      const allRows = [header, ...dataRows];
-      const tableWidth = Math.max(...allRows.map((r) => r.length));
-
-      blocks.push({
-        object: 'block',
-        type: 'table',
-        table: {
-          table_width: tableWidth,
-          has_column_header: true,
-          has_row_header: false,
-          children: allRows.map((row) => ({
-            object: 'block',
-            type: 'table_row',
-            table_row: {
-              cells: Array.from({ length: tableWidth }, (_, idx) => parseInline(row[idx] ?? '')),
-            },
-          })),
-        },
-      });
-      continue;
-    }
-
-    // 일반 단락
-    const paraLines = [];
-    while (i < lines.length && lines[i].trim() !== '') {
-      const cur = lines[i];
-      if (
-        cur.startsWith('#') ||
-        cur.startsWith('```') ||
-        cur.startsWith('>') ||
-        cur.startsWith('|') ||
-        /^\s*[-*+]\s+/.test(cur) ||
-        /^\s*\d+\.\s+/.test(cur) ||
-        /^---+$/.test(cur.trim())
-      ) {
-        break;
-      }
-      paraLines.push(cur);
-      i += 1;
-    }
-    if (paraLines.length > 0) {
-      blocks.push({
-        object: 'block',
-        type: 'paragraph',
-        paragraph: {
-          rich_text: parseInline(paraLines.join('\n').slice(0, MAX_TEXT_BLOCK_LENGTH)),
-        },
-      });
-    }
-  }
-
-  return blocks;
+  return martianMarkdownToBlocks(md, {
+    notionLimits: {
+      truncate: true,
+      onError: (err) => {
+        console.warn(`    ⚠️  martian limit: ${err.message}`);
+      },
+    },
+    strictImageUrls: true,
+  });
 }
 
 // ----- Notion API helpers -----
