@@ -1,207 +1,206 @@
-# Phase 3: 사진 공유 + 동행자 + 권한 모델 Spec
+# Phase 3: 사진 공유 + EXIF strip + 실시간 통신 학습 Spec
 
-> **상태**: In Progress (Q 단계 결정 완료 — wave 5.1 진입 직전)
+> **상태**: In Progress (2026-06-09 reshape — 동행자 제거 + 공유 링크 중심)
 > **작성일**: 2026-06-09
 > **작성**: Claude (프롬프팅: @sikkzz)
-> **관련 문서**: [PROJECT_ROOT 6장 Phase 3 reshape](../PROJECT_ROOT.md#6-단계별-로드맵), [Phase 2 Spec](./phase-02-core-features.md), [ADR-0012 SSE](../decisions/0012-realtime-communication-sse.md), [ADR-0013 RBAC](../decisions/0013-rbac-single-guard-decorator.md), [ADR-0014 공유 토큰](../decisions/0014-share-link-token-uuid.md), [ADR-0015 EXIF strip](../decisions/0015-exif-strip-sharp.md)
+> **관련 문서**: [PROJECT_ROOT 6장 Phase 3 reshape](../PROJECT_ROOT.md#6-단계별-로드맵), [Phase 2 Spec](./phase-02-core-features.md), [ADR-0012 SSE](../decisions/0012-realtime-communication-sse.md), [ADR-0013 RBAC 보류](../decisions/0013-rbac-single-guard-decorator.md), [ADR-0014 공유 토큰](../decisions/0014-share-link-token-uuid.md), [ADR-0015 EXIF strip](../decisions/0015-exif-strip-sharp.md)
 
 ---
 
 ## 1. 한 줄 요약
 
-본인 혼자 박제하던 Moment를 **동행자와 공유**하고, **공유 링크**로 외부 사람에게도 보여주고, **EXIF GPS strip**으로 프라이버시를 지킬 수 있는 흐름. 동시에 **#4 실시간 통신 (SSE/WebSocket) 학습 영역** 본격 진입.
+본인이 박제한 Moment/사진을 **공유 링크**로 외부 사람에게 보여주고, **EXIF GPS strip**으로 프라이버시를 지키고, **사진 처리 진행률 + 알림 센터**를 polling → SSE 마이그레이션으로 학습 영역 #4(실시간 통신) 진입.
 
 ## 2. 배경 / 왜 만드는가
 
-### 도메인 확장
+### 도메인 확장 — 공유 링크만
 
 Phase 2 종료 시점 — Trailog는 **혼자 박제하는 도구**. 사용자 박제한 Moment는 외부와 공유 불가.
 
+**2026-06-09 reshape 결정**: 동행자 시스템(MomentMember + RBAC + 초대/수락)은 **Trailog 도메인 정의("본인 박제 본질") fit X**. Day One 패턴(혼자 일기 + 단방향 공유 링크)이 자연. 동행자는 서비스 고도화 단계(Phase 4+ 또는 사용자 피드백 기반)에 다시 검토.
+
 실제 사용자 흐름:
 
-- 여행 같이 간 사람과 사진 같이 보고 싶음
-- 가족/친구에게 카페 방문 공유 (전체 Moment 또는 단일 사진)
-- 외부 SNS에 공유 시 GPS 정보 누출 우려 — EXIF strip 필요
+- 친구/가족에게 단일 사진 또는 Moment 보여주기 → 공유 링크 전달
+- 외부 SNS에 공유 시 GPS 누출 우려 → EXIF strip
+- 본인 알림 (사진 처리 완료 / 공유 링크 조회됨) → 실시간 알림 센터
 
 ### 학습 영역 (PROJECT_ROOT 2장 #4)
 
-- **실시간 통신 (WebSocket/SSE)** ← Phase 3 핵심 학습 영역
-- 권한 모델 (RBAC, 공유 링크 기반 권한) — 참조 패턴(다층 가드 9개) 비교
-- 이미지 보안 (EXIF strip) — 미디어 처리 영역 깊이 ↑
+- **실시간 통신 (SSE)** ← Phase 3 핵심 학습 영역
+  - 사진 처리 진행률 polling([Phase 2 4.6 박힘](./phase-02-core-features.md)) → SSE 마이그레이션
+  - 알림 센터 (자기 알림 — 사진 처리 완료, 공유 링크 조회 등)
+- **이미지 보안 (EXIF strip)** — 미디어 처리 영역 깊이 ↑ + 프라이버시 정복
 
 ### 메모리 트리거 (Phase 3 진입 시점 활성화)
 
-- `picker-exif-preservation-revisit` — 공유 흐름 시 EXIF picker 한계 + 사용자 손실 보고 검토
-- `auth-deep-dive-revisit` — 다층 권한 + 참조 패턴 비교 시점
-- `error-handling-revisit` — 공유 링크 / 외부 API 에러 시 layer 정착 시점
+- `picker-exif-preservation-revisit` — 5.2 EXIF strip wave 진입 시점에 능동 알림 (picker 한계 + 사용자 손실 보고 검토)
+- `error-handling-revisit` — 공유 링크 / 외부 API 에러 layer 정착 시점 권유 (5.1 wave 자연)
 
 ## 3. 사용자 스토리
 
-- **As a** Trailog 사용자, **I want to** Moment에 동행자를 초대 **so that** 같이 갔던 사람과 사진 공유.
 - **As a** Trailog 사용자, **I want to** 단일 사진/Moment에 공유 링크 생성 **so that** Trailog 미가입 사용자에게도 보여줌.
 - **As a** Trailog 사용자, **I want to** 공유 시 GPS 정보를 자동/선택 strip **so that** 위치 누출 걱정 없이 SNS에 박음.
-- **As a** Trailog 사용자, **I want to** 내 Moment가 누구에게 공유됐는지 확인/취소 **so that** 권한 관리.
-- **As an** 동행자, **I want to** 초대받은 Moment를 푸시/실시간 알림으로 즉시 확인 **so that** 사진 공유 시점 놓치지 않음.
+- **As a** Trailog 사용자, **I want to** 공유 링크에 만료 시간 + 비밀번호 설정 **so that** 시간 지난 뒤 자동 무효 + 민감한 사진 보호.
+- **As a** Trailog 사용자, **I want to** 사진 처리 진행률을 실시간 확인 **so that** 업로드 후 답답함 없이 즉시 결과 노출.
+- **As a** Trailog 사용자, **I want to** 공유 링크가 조회될 때 알림 받음 **so that** 누가 봤는지 인지.
 
 ## 4. 수용 기준 (Acceptance Criteria)
 
-### 4.1 동행자 초대 (Member)
-
-- [ ] Moment에 다른 사용자 초대 가능 (이메일 또는 사용자 ID)
-- [ ] 초대된 사용자는 본인의 Moment 리스트에 동행 Moment도 표시
-- [ ] 동행자는 사진 추가 가능 (권한: contributor) 또는 viewer 권한만
-- [ ] 초대 취소 시 동행자의 접근 즉시 차단
-- [ ] 초대받은 사용자가 거절 가능 — 거절 시 본인 리스트에 안 보임
-
-### 4.2 공유 링크 (외부 공유)
+### 4.1 공유 링크 (외부 공유)
 
 - [ ] 단일 사진 또는 Moment 단위로 공유 링크 생성
 - [ ] 공유 링크는 **만료 시간** 설정 가능 (1시간 / 1일 / 1주 / 영구)
-- [ ] 공유 링크는 **비밀번호 보호** 옵션
+- [ ] 공유 링크는 **비밀번호 보호** 옵션 (bcrypt 해시)
 - [ ] 공유 링크 접근 시 Trailog 회원가입 없이 사진 보기 가능 (read-only)
-- [ ] 공유 링크 취소 시 즉시 무효화
+- [ ] 공유 링크 취소 시 즉시 무효화 (DB row 삭제)
+- [ ] 사용자가 본인의 활성 공유 링크 목록 확인 가능
 
-### 4.3 EXIF strip (프라이버시)
+### 4.2 EXIF strip (프라이버시)
 
 - [ ] 공유 시 **기본 EXIF strip** (GPS 좌표만 / 모든 EXIF 둘 다 옵션)
 - [ ] 사용자가 사진 단위로 strip 여부 선택
-- [ ] Moment 단위 default strip 정책 설정 (전체 strip / 선택 strip)
+- [ ] Moment 단위 default strip 정책 설정 (전체 strip / 선택 strip / 원본 그대로)
 - [ ] strip된 파일은 R2 별도 prefix에 박힘 (원본 보존)
 - [ ] 공유 받은 사람이 사진 다운로드 시 strip된 파일 받음
 
-### 4.4 실시간 알림 (SSE 또는 WebSocket)
+### 4.3 실시간 통신 (SSE)
 
-- [ ] 동행자 초대 시 초대받은 사용자에게 실시간 알림 (앱 열려있으면)
-- [ ] Moment에 새 사진 추가 시 동행자에게 실시간 알림
-- [ ] 앱 닫혀있을 때는 **푸시 알림** (Expo Notifications) — Q
-- [ ] 알림 센터/뱃지 — 미확인 알림 개수 표시
+- [ ] 사진 처리 진행률 polling([Phase 2 4.6 박힘](./phase-02-core-features.md)) → **SSE 마이그레이션**
+- [ ] 사용자별 SSE 연결 — 본인의 모든 알림 수신 (사진 처리 완료, 공유 링크 조회됨 등)
+- [ ] 알림 센터 UI + 미확인 알림 뱃지
+- [ ] 백엔드 NestJS `@Sse()` + RxJS Subject 패턴
+- [ ] 모바일 `react-native-sse` mount + React Query 캐시 invalidation 트리거
 
-### 4.5 권한 모델
+### 4.4 권한 모델 — 단순
 
-- [ ] Moment 권한: **owner** (생성자) / **contributor** (사진 추가 OK) / **viewer** (보기만)
-- [ ] 공유 링크는 viewer 권한만
-- [ ] 백엔드 가드 — 모든 Moment/Photo API에 권한 체크
-- [ ] 권한 변경 즉시 반영 (캐시 무효화)
+- [ ] Moment/Photo CRUD: **본인(`moment.userId === req.user.id`)만 접근** — 단순 검사
+- [ ] 공유 링크 read: 인증 X (토큰만)
+- [ ] 백엔드 가드 — 모든 Moment/Photo API에 owner 검사 (단일 `OwnerOnlyGuard` 또는 service 단 직접 검사)
+- [ ] 참조 다층 RBAC + decorator 패턴은 [ADR-0013](../decisions/0013-rbac-single-guard-decorator.md) 보류 — 동행자 시스템 재검토 시점 활성
 
 ## 5. 비범위 (Out of Scope)
 
 이번 Phase엔 안 함:
 
-- ❌ **검색 / 필터 / 태그** → Phase 4+ (다른 wave)
+- ❌ **동행자 시스템** (MomentMember + 초대 + 수락/거절 + 협업) → **서비스 고도화 단계 재검토** (Phase 4+ 사용자 피드백 기반)
+- ❌ **다층 RBAC + decorator 패턴** → 동행자 시스템과 함께 재검토
+- ❌ **푸시 알림** (앱 닫힌 상태) → Phase 4 운영 안정화 wave
+- ❌ **검색 / 필터 / 태그** → Phase 4+
 - ❌ **댓글 / 좋아요** → Phase 4+
-- ❌ **Trip 단위 묶기 + polyline + 타임라인 슬라이더** → Phase 3 종료 후 별도 wave
-- ❌ **공유 받은 사용자가 동행자로 자동 승격** → 명시적 초대만
-- ❌ **공유 링크의 사용자 행동 분석** (조회수, 다운로드 수 등) → Phase 4+
+- ❌ **Trip 단위 묶기 + polyline + 타임라인** → Phase 3 종료 후 별도 wave (시각화 깊이)
+- ❌ **공유 링크 통계** (조회수 누적, 다운로드 수 등) → Phase 4+ (운영 시점)
 - ❌ **OAuth 소셜 로그인** → 메모리 `auth-deep-dive-revisit` 별도 시점
-- ❌ **2FA** → 참조 패턴 — Phase 5+
+- ❌ **2FA** → Phase 5+
 - ❌ **결제/구독** → Phase 5+
 
 ## 6. 사용자 플로우
 
-### 6.1 동행자 초대 흐름
-
-```mermaid
-flowchart LR
-    A[Owner: Moment 상세] --> B[동행자 초대 버튼]
-    B --> C[이메일/사용자 ID 입력]
-    C --> D{사용자 존재?}
-    D -->|존재| E[권한 선택: viewer/contributor]
-    D -->|미존재| F[이메일 초대 발송 - 가입 후 자동 연결]
-    E --> G[초대 발송]
-    G --> H{초대받은 사용자 액션}
-    H -->|수락| I[Moment 동행 시작]
-    H -->|거절| J[알림만 박힘]
-    I --> K[실시간 알림 SSE]
-```
-
-### 6.2 공유 링크 흐름
+### 6.1 공유 링크 흐름
 
 ```mermaid
 flowchart LR
     A[사진 또는 Moment] --> B[공유 링크 생성]
     B --> C[만료 시간 + 비밀번호 옵션]
     C --> D[EXIF strip 정책 확인]
-    D --> E[backend: 토큰 발급 + strip 파일 R2 박기]
-    E --> F[공유 URL https://trailog.app/share/abc123]
+    D --> E[backend: nanoid 토큰 발급 + strip 파일 R2 박기]
+    E --> F[공유 URL trailog.app/s/abc123]
     F --> G[외부 사용자 접근]
     G --> H{토큰 valid?}
     H -->|만료/취소| I[404/410]
     H -->|valid| J[비밀번호 확인 if 박힘]
     J --> K[read-only 사진 보기]
+    K --> L[SSE: owner에게 조회됨 알림]
 ```
 
-### 6.3 EXIF strip 흐름
+### 6.2 EXIF strip 흐름
 
 ```mermaid
 flowchart LR
     A[공유 또는 외부 다운로드 요청] --> B{Strip 정책}
-    B -->|GPS만| C[sharp으로 EXIF 일부 제거]
-    B -->|전체 EXIF| D[sharp으로 EXIF 통째 제거]
+    B -->|GPS만| C[sharp withExif에서 GPS 키 제거]
+    B -->|전체 EXIF| D[sharp default strip - 옵션 안 박음]
     B -->|원본 그대로| E[원본 사진 그대로 노출]
     C --> F[R2 strip prefix 박기]
     D --> F
     F --> G[공유 URL은 strip된 파일 가리킴]
 ```
 
+### 6.3 SSE 알림 흐름
+
+```mermaid
+sequenceDiagram
+    participant Mobile as 모바일 (react-native-sse)
+    participant API as NestJS @Sse
+    participant Worker as BullMQ Worker
+    participant Share as 공유 링크 API
+
+    Mobile->>API: GET /notifications/stream (Bearer)
+    API->>Mobile: SSE 연결 + active 등록
+    Note over Mobile,API: long-lived HTTP/2
+    Worker->>API: 사진 처리 완료 (BullMQ 이벤트)
+    API->>Mobile: data: { type: 'photo.processed', photoId }
+    Share->>API: 외부 사용자가 공유 링크 접근
+    API->>Mobile: data: { type: 'share.viewed', shareId }
+    Mobile->>Mobile: React Query 캐시 invalidate + 알림 센터 update
+```
+
 ## 7. 테스트 시나리오 (QA 관점)
 
-| #   | 시나리오                                         | 예상 결과                             | 자동화             |
-| --- | ------------------------------------------------ | ------------------------------------- | ------------------ |
-| 1   | Owner가 동행자 초대 → 수락 → 사진 추가           | 동행자도 사진 보임 + 실시간 알림 도착 | E2E                |
-| 2   | Owner가 초대 취소 → 동행자가 사진 접근           | 403 + 리스트에서 자동 제거            | E2E                |
-| 3   | viewer 권한 사용자가 사진 추가 시도              | 403                                   | E2E                |
-| 4   | 공유 링크 만료 후 접근                           | 410 Gone + "만료된 링크" 안내         | E2E                |
-| 5   | 공유 링크에 비밀번호 박고 잘못 입력              | 401 + 재시도 가능                     | E2E                |
-| 6   | GPS strip 공유 후 다운로드 → exiftool로 GPS 검증 | GPS 없음 확인                         | 수동 + 자동        |
-| 7   | 동행자에게 푸시 알림 — 앱 닫힌 상태              | 푸시 도착 + 탭 시 Moment 진입         | 수동 (실 디바이스) |
-| 8   | 동시 동행 — 여러 사용자 같이 사진 업로드         | 순서/중복 없이 정상 sync              | E2E                |
+| #   | 시나리오                                         | 예상 결과                             | 자동화      |
+| --- | ------------------------------------------------ | ------------------------------------- | ----------- |
+| 1   | 공유 링크 만들고 외부 브라우저 접근              | read-only 사진 보임 + 만료/비밀번호 X | E2E         |
+| 2   | 공유 링크 만료 후 접근                           | 410 Gone + "만료된 링크" 안내         | E2E         |
+| 3   | 공유 링크에 비밀번호 박고 잘못 입력              | 401 + 재시도 가능                     | E2E         |
+| 4   | 공유 링크 취소 후 외부 접근                      | 404 Not Found                         | E2E         |
+| 5   | GPS strip 공유 후 다운로드 → exiftool로 GPS 검증 | GPS 없음 확인                         | 수동 + 자동 |
+| 6   | 사진 업로드 → SSE로 처리 진행률 실시간 도착      | pending → done 상태 즉시 노출         | E2E         |
+| 7   | 공유 링크 외부 조회 → owner에게 SSE 알림         | 알림 센터에 즉시 표시                 | E2E         |
+| 8   | 본인 X의 Moment에 접근 시도                      | 403                                   | E2E         |
 
 ## 8. 성공 지표
 
-- 동행자 초대 → 수락률 (이메일 초대 / 회원 초대 분리)
 - 공유 링크 평균 조회수 / 만료 전 취소율
 - EXIF strip 사용률 (default 채택 정도)
-- 실시간 알림 latency (서버 → 클라이언트)
+- SSE 알림 latency (서버 → 클라이언트)
 
 → Phase 3에선 측정 인프라 없으므로 측정 X. **Phase 4 운영 진입 시점에 박제**.
 
-## 9. 결정 사항 (2026-06-09 Q 단계 완료)
+## 9. 결정 사항 (2026-06-09 Q 단계 완료 + reshape)
 
-| Q                    | 결정                                                                                     | 박제                                                         |
-| -------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| **Q1 실시간 통신**   | **SSE** (NestJS `@Sse` + `react-native-sse`)                                             | [ADR-0012](../decisions/0012-realtime-communication-sse.md)  |
-| **Q2 푸시 알림**     | **Phase 4로 이동** (Phase 3은 in-app SSE만) — 4-1 운영 안정화 wave에 박힘                | PROJECT_ROOT 6장 Phase 4                                     |
-| **Q3 공유 토큰**     | **nanoid 21자 + DB `Share` entity** — 즉시 취소 가능                                     | [ADR-0014](../decisions/0014-share-link-token-uuid.md)       |
-| **Q4 EXIF strip**    | **sharp `withMetadata()` strip** — 기존 의존성 활용 + default가 strip                    | [ADR-0015](../decisions/0015-exif-strip-sharp.md)            |
-| **Q5 권한 모델**     | **단일 `MomentRoleGuard` + `@RequireMomentRole` decorator** — NestJS 표준 Reflector 패턴 | [ADR-0013](../decisions/0013-rbac-single-guard-decorator.md) |
-| **Q6 초대 이메일**   | **in-app 알림만** (Phase 3) — 외부 이메일 초대는 Phase 4                                 | spec 본문 (5.1 wave)                                         |
-| **Q7 short URL**     | **신규 라우트** (`trailog.app/s/{nanoid}`) — 별도 도메인 X                               | spec 본문 (5.2 wave)                                         |
-| **Q8 비밀번호 해시** | **bcrypt** (회원가입 + 일관) — `passwordHash` nullable 컬럼                              | ADR-0014 본문                                                |
+| Q                    | 결정                                                                                           | 박제                                                              |
+| -------------------- | ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| **Q1 실시간 통신**   | **SSE** (NestJS `@Sse` + `react-native-sse`) — 동행자 알림 X / 사진 처리 + 알림 센터 학습 흐름 | [ADR-0012](../decisions/0012-realtime-communication-sse.md)       |
+| **Q2 푸시 알림**     | **Phase 4** (4-1 운영 안정화 wave)                                                             | PROJECT_ROOT 6장 Phase 4                                          |
+| **Q3 공유 토큰**     | **nanoid 21자 + DB `Share` entity**                                                            | [ADR-0014](../decisions/0014-share-link-token-uuid.md)            |
+| **Q4 EXIF strip**    | **sharp `withMetadata()` strip** — default가 strip                                             | [ADR-0015](../decisions/0015-exif-strip-sharp.md)                 |
+| **Q5 권한 모델**     | **단순 `moment.userId === req.user.id` 검사** — 다층 RBAC + decorator 패턴 보류                | [ADR-0013 보류](../decisions/0013-rbac-single-guard-decorator.md) |
+| **Q6 초대 이메일**   | **N/A** — 동행자 시스템 보류로 의미 X                                                          | —                                                                 |
+| **Q7 short URL**     | **신규 라우트** (`trailog.app/s/{nanoid}`)                                                     | spec 본문 (5.1 wave)                                              |
+| **Q8 비밀번호 해시** | **bcrypt** (회원가입 + 일관)                                                                   | ADR-0014 본문                                                     |
 
-### 메모리 트리거 활성화 (Phase 3 진입 = 자동 활성)
+### 추후 인지 — 서비스 고도화 단계 재검토
 
-- `picker-exif-preservation-revisit` — 5.3 EXIF strip wave 진입 시점에 능동 알림 (picker 한계 + 사용자 손실 보고)
-- `auth-deep-dive-revisit` — 5.1 동행자 초대 wave 진입 시점에 참조 다층 9 Guard 비교 학습 노트 권유
-- `error-handling-revisit` — 공유 링크 / 외부 API 에러 layer 정착 시점 권유 (5.2 wave 자연)
+- **동행자 시스템** — Trailog 도메인 "본인 박제 본질" fit X로 Phase 3 진입 시 제외. **사용자 피드백 + 운영 진입(Phase 4+) + 협업 가치 검증 시점**에 재검토. ADR-0013 RBAC + MomentMember entity + 초대/수락 흐름 그대로 활용 가능.
 
 ## 10. 진행 흐름
 
-| Wave       | 내용                                                                                                                                     | ETA   | 상태               |
-| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ----- | ------------------ |
-| **Q 단계** | Q1~Q8 결정 + ADR 4건 (SSE / RBAC / 공유 토큰 / EXIF strip)                                                                               | 1일   | ✅ 2026-06-09 완료 |
-| **5.1**    | **동행자 초대 + 권한 모델** — MomentMember entity + MomentRoleGuard + decorator + 기존 endpoint 권한 일괄 + 모바일 초대 UI + in-app 알림 | 3~4일 | 🚧 진입            |
-| **5.2**    | **공유 링크** — Share entity (nanoid + 만료 + bcrypt) + `POST/GET/DELETE /shares` + `trailog.app/s/{token}` 라우트 + 모바일 공유 UI      | 3~4일 | ⏳ 대기            |
-| **5.3**    | **EXIF strip** — sharp `withExif()` 정책별 strip + R2 strip prefix + 사용자 옵션 UI                                                      | 2~3일 | ⏳ 대기            |
-| **5.4**    | **실시간 알림 (SSE)** — NestJS `@Sse` + RxJS Subject + `react-native-sse` mount + 알림 센터 UI                                           | 4~5일 | ⏳ 대기            |
-| **5.5**    | **UI/UX 폴리시 + 학습 노트** — 학습 노트 4건 + 실 디바이스 시각 검증 + Phase 3 종료 박제                                                 | 2~3일 | ⏳ 대기            |
+| Wave       | 내용                                                                                                                                                                                    | ETA   | 상태               |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ------------------ |
+| **Q 단계** | Q1~Q8 결정 + ADR 4건 (SSE / RBAC 보류 / 공유 토큰 / EXIF strip)                                                                                                                         | 1일   | ✅ 2026-06-09 완료 |
+| **5.1**    | **공유 링크** — Share entity (nanoid + 만료 + bcrypt) + `POST/GET/DELETE /shares` + `trailog.app/s/{token}` 라우트 + 모바일 공유 UI + 기존 Moment/Photo endpoint에 owner 검사 일괄 적용 | 3~4일 | 🚧 진입            |
+| **5.2**    | **EXIF strip** — sharp `withExif()` 정책별 strip + R2 strip prefix + 사용자 옵션 UI (Moment default + 공유시 override)                                                                  | 2~3일 | ⏳ 대기            |
+| **5.3**    | **실시간 통신 (SSE)** — Phase 2 4.6 사진 처리 polling → SSE 마이그레이션 + 알림 센터 + 공유 링크 조회됨 알림 + 학습 노트 SSE/WebSocket 비교                                             | 4~5일 | ⏳ 대기            |
+| **5.4**    | **UI/UX 폴리시 + 학습 노트** — 학습 노트 3~4건 + 실 디바이스 시각 검증 + Phase 3 종료 박제                                                                                              | 2~3일 | ⏳ 대기            |
 
-**작업 기간 잠정**: 2~3주 (Q2 푸시 Phase 4 이동 + Q6 in-app만 결정으로 범위 ↓)
+**작업 기간 잠정**: 1.5~2주 (동행자 시스템 제외로 wave 4개 + 권한 모델 단순화로 범위 ↓)
 
 **각 wave 진입 전 본인과 논의 — spec/동작 정밀 확정 후 구현**.
 
 ## 11. 변경 이력
 
-| 날짜       | 변경 내용                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-06-09 | 최초 작성 — Phase 2 4.8 종료 후 Phase 3 reshape (PROJECT_ROOT 6장 outdated → 공유 흐름으로 정정). A 옵션 채택 (공유 흐름 + 실시간 통신 학습). Q1~Q8 미정 사안 박제. Trip + 타임라인은 Phase 3 종료 후 별도 wave로 분리.                                                                                                                                                                                                                                                                                                                                                                                       |
-| 2026-06-09 | **Q 단계 완료 — ADR 4건 + 결정 박제**. Q1~Q8 8개 결정: SSE([ADR-0012](../decisions/0012-realtime-communication-sse.md)) + 푸시 Phase 4 이동 + nanoid 공유 토큰([ADR-0014](../decisions/0014-share-link-token-uuid.md)) + sharp EXIF strip([ADR-0015](../decisions/0015-exif-strip-sharp.md)) + 단일 MomentRoleGuard([ADR-0013](../decisions/0013-rbac-single-guard-decorator.md)) + in-app 초대만 + 신규 라우트 short URL + bcrypt 비밀번호. **wave 5.5 푸시 알림 제거** (Phase 4로 이동) → wave 5개로 정리. 작업 기간 3~4주 → 2~3주 단축. 다음: wave 5.1 진입 (본인과 논의 후 동행자 초대 + 권한 모델 구현). |
+| 날짜       | 변경 내용                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-06-09 | 최초 작성 — Phase 2 4.8 종료 후 Phase 3 reshape (PROJECT_ROOT 6장 outdated → 공유 흐름으로 정정). A 옵션 채택 (공유 흐름 + 실시간 통신 학습). Q1~Q8 미정 사안 박제. Trip + 타임라인은 Phase 3 종료 후 별도 wave로 분리.                                                                                                                                                                                                                                                                                                                                                |
+| 2026-06-09 | **Q 단계 완료 — ADR 4건 + 결정 박제**. Q1~Q8 8개 결정: SSE + 푸시 Phase 4 + nanoid 공유 토큰 + sharp EXIF strip + 단일 MomentRoleGuard + in-app 초대만 + 신규 라우트 short URL + bcrypt 비밀번호. wave 5.5 푸시 알림 제거 (Phase 4로 이동).                                                                                                                                                                                                                                                                                                                            |
+| 2026-06-09 | **🔄 reshape — 동행자 시스템 제거 + 공유 링크 중심**. 본인 의문 — Trailog 도메인 "본인 박제 본질"에 동행자 시스템 fit X. Day One 패턴(혼자 일기 + 단방향 공유) 자연. 동행자는 서비스 고도화 단계(Phase 4+ 또는 사용자 피드백 기반) 재검토. **변경**: wave 5.1 동행자 → 공유 링크로 교체, ADR-0013 RBAC + MomentMember entity **보류**(supersede X), 권한 모델 단순화(`moment.userId === req.user.id`만), 학습 영역 #4 SSE 흐름 변경(동행자 알림 X → 사진 처리 polling 마이그레이션 + 알림 센터). wave 4개 + 작업 기간 1.5~2주로 단축. 다음: wave 5.1 진입 (공유 링크). |

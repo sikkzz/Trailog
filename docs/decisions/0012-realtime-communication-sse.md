@@ -9,7 +9,15 @@
 
 ## 맥락 (Context)
 
-Phase 3 사진 공유 wave 진입 시점. 동행자 초대 + 새 사진 추가 시 동행자에게 **실시간 알림** 필요 (4.4 AC). 통신 방식 선택:
+> **2026-06-09 reshape 박제**: 본 ADR 작성 시점엔 동행자 초대 + 새 사진 추가 알림이 핵심 흐름이었음. 본인 결정 — 동행자 시스템 보류 → SSE 학습 흐름 변경: **사진 처리 진행률 polling([Phase 2 4.6 박힘](../specs/phase-02-core-features.md)) → SSE 마이그레이션 + 알림 센터(사진 처리 완료 / 공유 링크 조회됨)**. SSE 채택 자체는 그대로 유효.
+
+Phase 3 사진 공유 wave 진입 시점. 실시간 알림 필요:
+
+- 사진 처리 진행률 (Phase 2 4.6은 polling 박혀있음 — SSE로 마이그레이션)
+- 공유 링크 외부 조회됨 알림 (5.1 wave 본인 인지)
+- 알림 센터 (자기 알림 누적)
+
+통신 방식 선택:
 
 1. **SSE (Server-Sent Events)** — HTTP 단방향 (server → client)
 2. **WebSocket** — 양방향 풀듀플렉스

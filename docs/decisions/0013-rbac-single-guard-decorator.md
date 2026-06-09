@@ -1,9 +1,36 @@
 # ADR-0013: RBAC 패턴 — 단일 Guard + Role Decorator
 
-> **상태**: Accepted
+> **상태**: **보류 (Deferred) — 2026-06-09**. 동행자 시스템 자체가 Trailog 도메인 fit X로 Phase 3에서 제외 — 본 ADR 채택도 자연 보류. **활성 트리거**: 동행자 시스템 재검토 시점 (서비스 고도화 / 사용자 피드백 / Phase 4+).
 > **날짜**: 2026-06-09
 > **결정자**: @sikkzz (with Claude)
 > **관련 문서**: [Phase 3 Spec](../specs/phase-03-sharing.md), [메모리 auth-deep-dive-revisit](../../../../.claude/projects/-Users-sling-Desktop-sling-Trailog/memory/auth-deep-dive-revisit.md)
+
+---
+
+## ⚠️ 보류 사유 (2026-06-09)
+
+**Phase 3 wave 5.1 진입 직전 본인 의문 제기** — "동행자 시스템이 꼭 필요한가?"
+
+검토 결과:
+
+- **Trailog 도메인 정의(PROJECT_ROOT 결정 1)**: "본인 박제 본질". 동행자는 "추가" 영역.
+- **유사 서비스 패턴**: Day One(혼자 일기 + 단방향 공유) ≈ Trailog 자연 fit. Apple Photos/구글 포토(collaborator)는 협업 도구. Trailog는 일기형.
+- **본인 결정**: "꼭 필요한 기능은 아닌 거 같아 우선 냅두고 넘어가자. 이후 서비스 고도화 단계에 고민".
+
+→ 동행자 시스템 + MomentMember entity + 초대/수락 흐름 모두 **보류**. 본 ADR도 자연 보류.
+
+**Phase 3에선 대신**: 단순 owner 검사(`moment.userId === req.user.id`) — Guard 1개 또는 service 단 직접 검사. 다층 RBAC 패턴은 동행자 시스템 활성 시점에 본 ADR 채택.
+
+## ✅ 재활성 트리거
+
+다음 시점에 본 ADR 다시 들여다보기:
+
+- **사용자 피드백** — "여러 명이 같이 박제하고 싶다" 명시적 요청
+- **운영 진입(Phase 4+)** — 사용자 행동 분석 후 협업 가치 검증
+- **공유 링크 → 동행자 자연 진화** — 공유 받은 사용자가 "나도 사진 추가하고 싶다" 패턴 발견
+- **본인 능동 결정** — 사이드 학습 다양화 또는 참조 다층 가드 9개 패턴 정복 시점
+
+활성 시 본 ADR 그대로 채택 가능 — entity 구조 + decorator + Guard 패턴 모두 그대로.
 
 ---
 
