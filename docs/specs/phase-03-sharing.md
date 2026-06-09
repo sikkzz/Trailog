@@ -1,9 +1,9 @@
 # Phase 3: 사진 공유 + 동행자 + 권한 모델 Spec
 
-> **상태**: Draft (Q 단계 진입 전)
+> **상태**: In Progress (Q 단계 결정 완료 — wave 5.1 진입 직전)
 > **작성일**: 2026-06-09
 > **작성**: Claude (프롬프팅: @sikkzz)
-> **관련 문서**: [PROJECT_ROOT 6장 Phase 3 reshape](../PROJECT_ROOT.md#6-단계별-로드맵), [Phase 2 Spec](./phase-02-core-features.md)
+> **관련 문서**: [PROJECT_ROOT 6장 Phase 3 reshape](../PROJECT_ROOT.md#6-단계별-로드맵), [Phase 2 Spec](./phase-02-core-features.md), [ADR-0012 SSE](../decisions/0012-realtime-communication-sse.md), [ADR-0013 RBAC](../decisions/0013-rbac-single-guard-decorator.md), [ADR-0014 공유 토큰](../decisions/0014-share-link-token-uuid.md), [ADR-0015 EXIF strip](../decisions/0015-exif-strip-sharp.md)
 
 ---
 
@@ -165,39 +165,43 @@ flowchart LR
 
 → Phase 3에선 측정 인프라 없으므로 측정 X. **Phase 4 운영 진입 시점에 박제**.
 
-## 9. 미정 사안 (Open Questions)
+## 9. 결정 사항 (2026-06-09 Q 단계 완료)
 
-### 핵심 Q
+| Q                    | 결정                                                                                     | 박제                                                         |
+| -------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| **Q1 실시간 통신**   | **SSE** (NestJS `@Sse` + `react-native-sse`)                                             | [ADR-0012](../decisions/0012-realtime-communication-sse.md)  |
+| **Q2 푸시 알림**     | **Phase 4로 이동** (Phase 3은 in-app SSE만) — 4-1 운영 안정화 wave에 박힘                | PROJECT_ROOT 6장 Phase 4                                     |
+| **Q3 공유 토큰**     | **nanoid 21자 + DB `Share` entity** — 즉시 취소 가능                                     | [ADR-0014](../decisions/0014-share-link-token-uuid.md)       |
+| **Q4 EXIF strip**    | **sharp `withMetadata()` strip** — 기존 의존성 활용 + default가 strip                    | [ADR-0015](../decisions/0015-exif-strip-sharp.md)            |
+| **Q5 권한 모델**     | **단일 `MomentRoleGuard` + `@RequireMomentRole` decorator** — NestJS 표준 Reflector 패턴 | [ADR-0013](../decisions/0013-rbac-single-guard-decorator.md) |
+| **Q6 초대 이메일**   | **in-app 알림만** (Phase 3) — 외부 이메일 초대는 Phase 4                                 | spec 본문 (5.1 wave)                                         |
+| **Q7 short URL**     | **신규 라우트** (`trailog.app/s/{nanoid}`) — 별도 도메인 X                               | spec 본문 (5.2 wave)                                         |
+| **Q8 비밀번호 해시** | **bcrypt** (회원가입 + 일관) — `passwordHash` nullable 컬럼                              | ADR-0014 본문                                                |
 
-- **Q1**: 실시간 통신 — **SSE vs WebSocket** 어느 쪽? → 학습 영역 ADR 박제 필요
-- **Q2**: 푸시 알림 — Expo Notifications (FCM/APNS) 도입 시점? Phase 3 vs Phase 4
-- **Q3**: 공유 링크 토큰 형식 — JWT vs random UUID vs HMAC?
-- **Q4**: EXIF strip lib — sharp의 metadata strip 활용 vs exiftool spawn vs `piexifjs` 등 별도 lib?
-- **Q5**: 권한 모델 — 백엔드 RBAC 어떻게? NestJS Guard 패턴 (단일 Guard + decorator vs 다층 Guard)?
-- **Q6**: 동행자 초대 이메일 발송 — Phase 3 도입 vs in-app 알림만?
-- **Q7**: 공유 링크 short URL 단축 (`trailog.app/s/abc`) — 신규 라우트 vs 별도 도메인?
-- **Q8**: 비밀번호 보호 공유 링크 — 비밀번호 해시 저장 + bcrypt 비교? 또는 단순 비교?
+### 메모리 트리거 활성화 (Phase 3 진입 = 자동 활성)
 
-### 추후 결정
+- `picker-exif-preservation-revisit` — 5.3 EXIF strip wave 진입 시점에 능동 알림 (picker 한계 + 사용자 손실 보고)
+- `auth-deep-dive-revisit` — 5.1 동행자 초대 wave 진입 시점에 참조 다층 9 Guard 비교 학습 노트 권유
+- `error-handling-revisit` — 공유 링크 / 외부 API 에러 layer 정착 시점 권유 (5.2 wave 자연)
 
-- 메모리 트리거 `auth-deep-dive-revisit` 활성화 — 참조 다층 가드 9개 패턴 비교 후 본 Phase에 채택할 항목 결정
+## 10. 진행 흐름
 
-## 10. 진행 흐름 (잠정)
+| Wave       | 내용                                                                                                                                     | ETA   | 상태               |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ----- | ------------------ |
+| **Q 단계** | Q1~Q8 결정 + ADR 4건 (SSE / RBAC / 공유 토큰 / EXIF strip)                                                                               | 1일   | ✅ 2026-06-09 완료 |
+| **5.1**    | **동행자 초대 + 권한 모델** — MomentMember entity + MomentRoleGuard + decorator + 기존 endpoint 권한 일괄 + 모바일 초대 UI + in-app 알림 | 3~4일 | 🚧 진입            |
+| **5.2**    | **공유 링크** — Share entity (nanoid + 만료 + bcrypt) + `POST/GET/DELETE /shares` + `trailog.app/s/{token}` 라우트 + 모바일 공유 UI      | 3~4일 | ⏳ 대기            |
+| **5.3**    | **EXIF strip** — sharp `withExif()` 정책별 strip + R2 strip prefix + 사용자 옵션 UI                                                      | 2~3일 | ⏳ 대기            |
+| **5.4**    | **실시간 알림 (SSE)** — NestJS `@Sse` + RxJS Subject + `react-native-sse` mount + 알림 센터 UI                                           | 4~5일 | ⏳ 대기            |
+| **5.5**    | **UI/UX 폴리시 + 학습 노트** — 학습 노트 4건 + 실 디바이스 시각 검증 + Phase 3 종료 박제                                                 | 2~3일 | ⏳ 대기            |
 
-| Wave       | 내용                                                                                                 | ETA   |
-| ---------- | ---------------------------------------------------------------------------------------------------- | ----- |
-| **Q 단계** | Q1~Q8 결정 + ADR 작성 (실시간 통신 + 권한 모델 + EXIF strip lib)                                     | 2~3일 |
-| **5.1**    | **동행자 초대** — Moment 권한 모델 백엔드 (entity + RBAC + invite API) + 모바일 초대 UI              | 3~4일 |
-| **5.2**    | **공유 링크** — Share 토큰 entity + 만료/비밀번호 + 외부 read API + 모바일 공유 UI                   | 3~4일 |
-| **5.3**    | **EXIF strip** — sharp 또는 외부 lib + R2 strip prefix + 사용자 옵션 UI                              | 2~3일 |
-| **5.4**    | **실시간 알림 (SSE)** — 백엔드 SSE endpoint + 모바일 EventSource 통합 + 동행자 초대/사진 추가 이벤트 | 4~5일 |
-| **5.5**    | **푸시 알림 (Expo Notifications)** — Q2 결정 따름 (Phase 3 또는 4로 이동)                            | 3~4일 |
-| **5.6**    | **UI/UX 폴리시 + 학습 노트**                                                                         | 2~3일 |
+**작업 기간 잠정**: 2~3주 (Q2 푸시 Phase 4 이동 + Q6 in-app만 결정으로 범위 ↓)
 
-**작업 기간 잠정**: 3~4주 (Phase 2 4주와 같은 규모)
+**각 wave 진입 전 본인과 논의 — spec/동작 정밀 확정 후 구현**.
 
 ## 11. 변경 이력
 
-| 날짜       | 변경 내용                                                                                                                                                                                                               |
-| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-06-09 | 최초 작성 — Phase 2 4.8 종료 후 Phase 3 reshape (PROJECT_ROOT 6장 outdated → 공유 흐름으로 정정). A 옵션 채택 (공유 흐름 + 실시간 통신 학습). Q1~Q8 미정 사안 박제. Trip + 타임라인은 Phase 3 종료 후 별도 wave로 분리. |
+| 날짜       | 변경 내용                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-06-09 | 최초 작성 — Phase 2 4.8 종료 후 Phase 3 reshape (PROJECT_ROOT 6장 outdated → 공유 흐름으로 정정). A 옵션 채택 (공유 흐름 + 실시간 통신 학습). Q1~Q8 미정 사안 박제. Trip + 타임라인은 Phase 3 종료 후 별도 wave로 분리.                                                                                                                                                                                                                                                                                                                                                                                       |
+| 2026-06-09 | **Q 단계 완료 — ADR 4건 + 결정 박제**. Q1~Q8 8개 결정: SSE([ADR-0012](../decisions/0012-realtime-communication-sse.md)) + 푸시 Phase 4 이동 + nanoid 공유 토큰([ADR-0014](../decisions/0014-share-link-token-uuid.md)) + sharp EXIF strip([ADR-0015](../decisions/0015-exif-strip-sharp.md)) + 단일 MomentRoleGuard([ADR-0013](../decisions/0013-rbac-single-guard-decorator.md)) + in-app 초대만 + 신규 라우트 short URL + bcrypt 비밀번호. **wave 5.5 푸시 알림 제거** (Phase 4로 이동) → wave 5개로 정리. 작업 기간 3~4주 → 2~3주 단축. 다음: wave 5.1 진입 (본인과 논의 후 동행자 초대 + 권한 모델 구현). |
