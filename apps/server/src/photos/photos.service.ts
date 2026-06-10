@@ -142,6 +142,17 @@ export class PhotosService {
     );
   }
 
+  /**
+   * 본인 userId의 photo 1건 조회 (권한 검증용) — Phase 3 5.1 추가.
+   * 다른 도메인(Shares 등)에서 photoId 권한 확인 시 호출.
+   * 본인 것이 아니면 null → 호출자가 NOT_FOUND 또는 FORBIDDEN 응답.
+   *
+   * MomentsService.findMomentByIdAndUserId 패턴 일관.
+   */
+  async findPhotoByIdAndUserId(id: string, userId: string): Promise<Photo | null> {
+    return this.photoRepo.findOne({ where: { id, userId } });
+  }
+
   /** Moment의 사진 리스트 — 각 사진에 presigned GET URL 동봉. */
   async findPhotosByMomentId(
     userId: string,

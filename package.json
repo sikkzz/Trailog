@@ -38,5 +38,11 @@
     "turbo": "^2.0.0",
     "typescript": "^5.5.0"
   },
-  "//lint-staged": "룰은 .lintstagedrc.cjs로 분리 — ESLint v9 flat config가 workspace cwd 필요해서 함수형 룰 사용 (root config 없으면 cwd 못 찾음)"
+  "pnpm": {
+    "overrides": {
+      "yargs": "17.7.2"
+    }
+  },
+  "//lint-staged": "룰은 .lintstagedrc.cjs로 분리 — ESLint v9 flat config가 workspace cwd 필요해서 함수형 룰 사용 (root config 없으면 cwd 못 찾음)",
+  "//pnpm-overrides": "yargs 17 강제 — typeorm v1이 yargs 18(ESM only)을 가져오는데 typeorm-ts-node-commonjs는 require()로 로드 → ERR_REQUIRE_ESM. yargs 17은 CommonJS 호환."
 }

@@ -6,6 +6,7 @@ import { GeocodingModule } from './geocoding/geocoding.module';
 import { HealthModule } from './health/health.module';
 import { MomentsModule } from './moments/moments.module';
 import { PhotosModule } from './photos/photos.module';
+import { SharesModule } from './shares/shares.module';
 import { UsersModule } from './users/users.module';
 
 // BullMQ 위치: PhotosModule에 박혀있음 (참조 패턴 — 도메인 모듈 응집).
@@ -21,6 +22,7 @@ import { UsersModule } from './users/users.module';
     MomentsModule,
     PhotosModule,
     GeocodingModule,
+    SharesModule,
   ],
 })
 export class AppModule {}
