@@ -65,6 +65,16 @@ export class MomentsService {
     return this.momentRepo.findOne({ where: { id, userId } });
   }
 
+  /**
+   * 외부 공유용 — momentId만으로 조회 (Phase 3 5.1 D6b).
+   *
+   * Share 토큰으로 검증된 후 호출되는 method — 권한 검사 X.
+   * 사진 리스트는 별도(PhotosService.findPhotosForMomentShare)로 조회.
+   */
+  async findMomentForShare(id: string): Promise<Moment | null> {
+    return this.momentRepo.findOne({ where: { id } });
+  }
+
   /** Moment entity → CreateMomentResponseDto. Date → ISO string 변환. */
   private toResponseDto(moment: Moment): CreateMomentResponseDto {
     return {

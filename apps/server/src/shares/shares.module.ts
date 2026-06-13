@@ -17,6 +17,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { MomentsModule } from '../moments/moments.module';
 import { PhotosModule } from '../photos/photos.module';
 
+import { PublicSharesController } from './public-shares.controller';
 import { Share } from './share.entity';
 import { SharesController } from './shares.controller';
 import { SharesService } from './shares.service';
@@ -24,7 +25,7 @@ import { SharesService } from './shares.service';
 @Module({
   imports: [TypeOrmModule.forFeature([Share]), MomentsModule, PhotosModule],
   providers: [SharesService],
-  controllers: [SharesController],
+  controllers: [SharesController, PublicSharesController],
   exports: [SharesService],
 })
 export class SharesModule {}

@@ -35,6 +35,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ShareModal } from '../../components/share';
 import { EmptyState, ErrorState, LoadingState } from '../../components/states';
 import { useMoments } from '../../lib/moments';
 import {
@@ -64,6 +65,7 @@ export default function MomentDetailScreen() {
     refetch: refetchPhotos,
   } = useMomentPhotos(momentId);
   const uploadMutation = useUploadPhoto(momentId);
+  const [shareOpen, setShareOpen] = useState(false);
 
   // pull-to-refresh 전용 state — polling refetch는 false 유지 (RefreshControl 안 보임).
   // useQuery의 isRefetching은 polling에도 true → RefreshControl이 매번 떴다 사라져 깜빡임.
@@ -120,24 +122,45 @@ export default function MomentDetailScreen() {
         <Pressable onPress={() => router.back()}>
           <Text className="font-pretendard text-base text-primary">← 뒤로</Text>
         </Pressable>
-        <Pressable
-          onPress={pickAndUpload}
-          disabled={isUploading}
-          className={`px-3 py-1.5 bg-primary rounded-full active:opacity-80 ${
-            isUploading ? 'opacity-50' : ''
-          }`}
-          accessibilityRole="button"
-          accessibilityLabel={isUploading ? '사진 업로드 중' : '사진 추가'}
-          accessibilityHint="갤러리에서 사진 선택"
-          accessibilityState={{ disabled: isUploading, busy: isUploading }}
-        >
-          {isUploading ? (
-            <ActivityIndicator size="small" color="#fff" />
-          ) : (
-            <Text className="font-pretendard-semibold text-sm text-white">＋ 사진</Text>
-          )}
-        </Pressable>
+        <View className="flex-row gap-3 items-center">
+          <Pressable
+            onPress={() => setShareOpen(true)}
+            disabled={!moment}
+            className={`active:opacity-70 ${!moment ? 'opacity-30' : ''}`}
+            accessibilityRole="button"
+            accessibilityLabel="공유"
+            accessibilityHint="Moment 전체 공유 링크 생성"
+          >
+            <Text className="font-pretendard text-base text-primary">공유</Text>
+          </Pressable>
+          <Pressable
+            onPress={pickAndUpload}
+            disabled={isUploading}
+            className={`px-3 py-1.5 bg-primary rounded-full active:opacity-80 ${
+              isUploading ? 'opacity-50' : ''
+            }`}
+            accessibilityRole="button"
+            accessibilityLabel={isUploading ? '사진 업로드 중' : '사진 추가'}
+            accessibilityHint="갤러리에서 사진 선택"
+            accessibilityState={{ disabled: isUploading, busy: isUploading }}
+          >
+            {isUploading ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text className="font-pretendard-semibold text-sm text-white">＋ 사진</Text>
+            )}
+          </Pressable>
+        </View>
       </View>
+
+      {moment && (
+        <ShareModal
+          visible={shareOpen}
+          onClose={() => setShareOpen(false)}
+          target="moment"
+          targetId={moment.id}
+        />
+      )}
 
       {isUploading && (
         <View className="flex-row items-center gap-2 px-4 py-2.5 bg-primary-50 dark:bg-primary-900">

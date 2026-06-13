@@ -74,13 +74,15 @@ import {
 // Dev fallback platform별 분기:
 // - iOS Simulator: host Mac과 network 공유 → `localhost` OK
 // - **Android Emulator: 자체 network namespace** → host Mac은 `10.0.2.2` 특수 alias
-// - 실 디바이스 (Wifi): EXPO_PUBLIC_API_URL에 Mac LAN IP 박기 (예: http://192.168.0.10:3000)
+// - 실 디바이스 (Wifi): EXPO_PUBLIC_API_URL에 Mac LAN IP 박기 (예: http://192.168.0.10:4000)
 //
 // 흔한 함정 — Android Emulator에서 localhost 호출 시 emulator 자체를 가리켜
-// "fetch failed: java.net.ConnectException: Failed to connect to localhost/127.0.0.1:3000" 에러.
+// "fetch failed: java.net.ConnectException: Failed to connect to localhost/127.0.0.1:4000" 에러.
 function getDefaultApiUrl(): string {
-  if (Platform.OS === 'android') return 'http://10.0.2.2:3000';
-  return 'http://localhost:3000';
+  if (Platform.OS === 'android') return 'http://10.0.2.2:4000';
+  // iOS Simulator: localhost가 IPv6 ::1로 resolve되면 일부 환경에서 EINTR.
+  // 127.0.0.1 명시로 IPv4 강제 (백엔드가 dual-stack이라 둘 다 OK).
+  return 'http://127.0.0.1:4000';
 }
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? getDefaultApiUrl();

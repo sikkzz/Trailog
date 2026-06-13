@@ -23,9 +23,11 @@
 import { NaverMapMarkerOverlay, NaverMapView } from '@mj-studio/react-native-naver-map';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ShareModal } from '../../components/share';
 import { useReverseGeocode } from '../../lib/geocoding';
 import { useMomentPhotos, type PhotoLocation } from '../../lib/photos';
 
@@ -37,6 +39,7 @@ export default function PhotoDetailScreen() {
   const router = useRouter();
   const { data } = useMomentPhotos(momentId ?? '');
   const photo = data?.photos.find((p) => p.id === photoId);
+  const [shareOpen, setShareOpen] = useState(false);
 
   // 백엔드 NCP proxy로 단일 한국어 주소 — OS 차이 없음.
   const { data: geocodeData } = useReverseGeocode(photo?.location ?? null);
@@ -56,8 +59,26 @@ export default function PhotoDetailScreen() {
           <Text className="font-pretendard text-base text-white">닫기</Text>
         </Pressable>
         <Text className="font-pretendard-semibold text-base text-white">사진</Text>
-        <View className="w-10" />
+        <Pressable
+          onPress={() => setShareOpen(true)}
+          disabled={!photo}
+          className={`active:opacity-70 ${!photo ? 'opacity-30' : ''}`}
+          accessibilityRole="button"
+          accessibilityLabel="공유"
+          accessibilityHint="공유 링크 생성 모달 열기"
+        >
+          <Text className="font-pretendard text-base text-white">공유</Text>
+        </Pressable>
       </View>
+
+      {photo && (
+        <ShareModal
+          visible={shareOpen}
+          onClose={() => setShareOpen(false)}
+          target="photo"
+          targetId={photo.id}
+        />
+      )}
 
       {photo && imageUri ? (
         <ScrollView className="flex-1" contentContainerStyle={{ flexGrow: 1 }}>

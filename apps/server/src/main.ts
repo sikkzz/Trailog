@@ -7,9 +7,10 @@ import { AppModule } from './app.module';
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
 
-  // CORS — Expo web dev (http://localhost:8081) + 미래 web 출시 가능성 대응.
+  // CORS — Phase 3 5.1 D6b부터 `apps/web` Next 16 사이드(localhost:3000) 본격 진입.
   // 모바일 native(iOS/Android)는 CORS 적용 X — 무영향.
-  // 운영 web 출시 시 origin 명시 권장 (현재는 dev 편의 위해 전체 허용).
+  // 운영 web 출시 시 origin 명시 권장 (현재는 dev 편의 위해 전체 허용 + credentials).
+  // Phase 4 진입 시 origin 명시 — `https://trailog.app` + Vercel preview URL 등.
   app.enableCors({
     origin: true,
     credentials: true,
@@ -58,7 +59,7 @@ async function bootstrap(): Promise<void> {
     },
   });
 
-  const port = process.env.PORT ?? 3000;
+  const port = process.env.PORT ?? 4000;
   await app.listen(port);
 
   // eslint-disable-next-line no-console

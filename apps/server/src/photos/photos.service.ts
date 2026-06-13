@@ -153,6 +153,50 @@ export class PhotosService {
     return this.photoRepo.findOne({ where: { id, userId } });
   }
 
+  /**
+   * 외부 공유용 — photoId만으로 조회 + presigned URL (Phase 3 5.1 D6b).
+   *
+   * Share 토큰으로 검증된 후 호출되는 method — 권한 검사 X.
+   * thumbnail large 우선, 없으면 original 활용.
+   *
+   * @param photoId target photo
+   * @returns photo + presigned URL (없으면 null)
+   */
+  async findPhotoForShare(photoId: string): Promise<{ photo: Photo; imageUrl: string } | null> {
+    const photo = await this.photoRepo.findOne({ where: { id: photoId } });
+    if (!photo) return null;
+
+    // 사용자 표시용 — 가장 큰 thumbnail 우선 (없으면 original)
+    const key = photo.thumbnailKeys?.large ?? photo.originalKey;
+    const imageUrl = await this.r2Service.createPresignedGetUrl(key);
+
+    return { photo, imageUrl };
+  }
+
+  /**
+   * 외부 공유용 — momentId의 사진들 조회 (Phase 3 5.1 D6b).
+   *
+   * Share 토큰으로 검증된 후 호출되는 method — 권한 검사 X.
+   * 각 사진에 presigned URL 동봉. processingStatus 'done' 외(pending/failed)는 제외.
+   *
+   * @param momentId target moment
+   * @returns 사진 리스트 + presigned URL 각각
+   */
+  async findPhotosForMomentShare(momentId: string): Promise<{ photo: Photo; imageUrl: string }[]> {
+    const photos = await this.photoRepo.find({
+      where: { momentId, processingStatus: 'done' },
+      order: { takenAt: 'ASC', createdAt: 'ASC' },
+    });
+
+    return Promise.all(
+      photos.map(async (photo) => {
+        const key = photo.thumbnailKeys?.large ?? photo.originalKey;
+        const imageUrl = await this.r2Service.createPresignedGetUrl(key);
+        return { photo, imageUrl };
+      }),
+    );
+  }
+
   /** Moment의 사진 리스트 — 각 사진에 presigned GET URL 동봉. */
   async findPhotosByMomentId(
     userId: string,

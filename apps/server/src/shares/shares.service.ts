@@ -13,7 +13,14 @@
 // - target 권한 검증 — service 단계에서 분기 (photo/moment). polymorphic의 FK 제약 X 단점 보완.
 // - 응답에 password_hash 노출 X — hasPassword boolean만
 
-import { ConflictException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  GoneException,
+  HttpStatus,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import bcrypt from 'bcrypt';
 import { nanoid } from 'nanoid';
@@ -25,6 +32,7 @@ import { PhotosService } from '../photos/photos.service';
 
 import { CreateShareRequestDto, CreateShareResponseDto } from './dtos/create-share.dto';
 import { GetMySharesResponseDto, ShareListItemDto } from './dtos/get-my-shares.dto';
+import { PublicMomentDto, PublicPhotoDto, PublicShareResponseDto } from './dtos/public-share.dto';
 import { ExifStripPolicy, Share, ShareTarget } from './share.entity';
 
 /** bcrypt cost factor — 회원가입(auth.service)과 동일하게 유지 */
@@ -122,9 +130,149 @@ export class SharesService {
     return new RestResponse<null>().success(null);
   }
 
+  /**
+   * 외부 사용자 접근 — token으로 share 조회 (Phase 3 5.1 D6b).
+   *
+   * 흐름:
+   *   1. token으로 share row 조회 — 없으면 NotFound(404)
+   *   2. 만료 검사 — 만료됐으면 Gone(410)
+   *   3. 비밀번호 보호 시 → `{ status: 'locked' }` 응답 (사진 데이터 X)
+   *   4. 정상 시 → target 분기로 photo/moment 데이터 + presigned URL
+   *
+   * **응답에 passwordHash 노출 X**. EXIF strip 정책은 5.1엔 metadata만 (실제 strip은 5.2 wave).
+   *
+   * @param token nanoid 21자 토큰
+   */
+  async findPublicByToken(token: string): Promise<PublicShareResponseDto> {
+    const share = await this.findActiveShareOrThrow(token);
+
+    // 비밀번호 보호 → locked 응답 (데이터 X)
+    if (share.passwordHash !== null) {
+      return this.buildLockedResponse(share);
+    }
+
+    return this.buildOpenResponse(share);
+  }
+
+  /**
+   * 비밀번호 보호 share unlock — bcrypt 비교 후 정상 응답.
+   *
+   * 실패: UnauthorizedException(401).
+   */
+  async unlockShare(token: string, password: string): Promise<PublicShareResponseDto> {
+    const share = await this.findActiveShareOrThrow(token);
+
+    if (share.passwordHash === null) {
+      // 비밀번호 안 박힌 share에 unlock 시도 → 일반 조회와 같음
+      return this.buildOpenResponse(share);
+    }
+
+    const matched = await bcrypt.compare(password, share.passwordHash);
+    if (!matched) {
+      throw new UnauthorizedException('비밀번호가 올바르지 않습니다');
+    }
+
+    return this.buildOpenResponse(share);
+  }
+
   // ============================================================================
   // private
   // ============================================================================
+
+  /** token 활성 share 조회 + 만료/존재 검사 */
+  private async findActiveShareOrThrow(token: string): Promise<Share> {
+    const share = await this.shareRepo.findOne({ where: { token } });
+    if (!share) {
+      throw new NotFoundException('공유 링크를 찾을 수 없습니다');
+    }
+
+    if (share.expiresAt !== null && share.expiresAt < new Date()) {
+      throw new GoneException('공유 링크가 만료되었습니다');
+    }
+
+    return share;
+  }
+
+  /** 비밀번호 보호 — 사진 데이터 X 응답 */
+  private buildLockedResponse(share: Share): PublicShareResponseDto {
+    return {
+      status: 'locked',
+      target: share.target,
+      exifStripPolicy: share.exifStripPolicy,
+      expiresAt: share.expiresAt?.toISOString() ?? null,
+      photo: null,
+      moment: null,
+    };
+  }
+
+  /** 정상 — target 분기로 photo/moment 데이터 응답 */
+  private async buildOpenResponse(share: Share): Promise<PublicShareResponseDto> {
+    if (share.target === ShareTarget.PHOTO) {
+      const result = await this.photosService.findPhotoForShare(share.targetId);
+      if (!result) {
+        throw new NotFoundException('사진을 찾을 수 없습니다');
+      }
+      return {
+        status: 'open',
+        target: share.target,
+        exifStripPolicy: share.exifStripPolicy,
+        expiresAt: share.expiresAt?.toISOString() ?? null,
+        photo: this.toPublicPhotoDto(result.photo, result.imageUrl, share.exifStripPolicy),
+        moment: null,
+      };
+    }
+
+    // ShareTarget.MOMENT
+    const moment = await this.momentsService.findMomentForShare(share.targetId);
+    if (!moment) {
+      throw new NotFoundException('Moment를 찾을 수 없습니다');
+    }
+    const photos = await this.photosService.findPhotosForMomentShare(share.targetId);
+
+    return {
+      status: 'open',
+      target: share.target,
+      exifStripPolicy: share.exifStripPolicy,
+      expiresAt: share.expiresAt?.toISOString() ?? null,
+      photo: null,
+      moment: {
+        id: moment.id,
+        title: moment.title,
+        startedAt: moment.startedAt?.toISOString() ?? null,
+        endedAt: moment.endedAt?.toISOString() ?? null,
+        photos: photos.map((p) =>
+          this.toPublicPhotoDto(p.photo, p.imageUrl, share.exifStripPolicy),
+        ),
+      } satisfies PublicMomentDto,
+    };
+  }
+
+  /**
+   * Photo entity → PublicPhotoDto.
+   *
+   * EXIF strip 정책 적용 (5.1엔 metadata만 — 실제 R2 strip 파일은 5.2 wave):
+   * - all: location null (전체 EXIF strip 흉내)
+   * - gps_only: location null (GPS만 제거)
+   * - none: location 그대로
+   *
+   * 5.2 wave에서 R2 strip prefix 파일 활용으로 imageUrl 자체도 strip된 버전으로 변경.
+   */
+  private toPublicPhotoDto(
+    photo: import('../photos/photo.entity').Photo,
+    imageUrl: string,
+    policy: ExifStripPolicy,
+  ): PublicPhotoDto {
+    const includeLocation = policy === ExifStripPolicy.NONE;
+    return {
+      id: photo.id,
+      imageUrl,
+      takenAt: photo.takenAt?.toISOString() ?? null,
+      location:
+        includeLocation && photo.location
+          ? { latitude: photo.location.coordinates[1], longitude: photo.location.coordinates[0] }
+          : null,
+    };
+  }
 
   /** target이 본인 소유인지 검증 */
   private async assertTargetOwnership(
