@@ -6,7 +6,7 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint src/",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -17,12 +17,12 @@
     "zod": "^3"
   },
   "devDependencies": {
+    "@trailog/eslint-config": "workspace:*",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "autoprefixer": "^10.5.0",
     "eslint": "^9",
-    "eslint-config-next": "^16",
     "postcss": "^8.5.15",
     "tailwindcss": "^3",
     "typescript": "^5"
