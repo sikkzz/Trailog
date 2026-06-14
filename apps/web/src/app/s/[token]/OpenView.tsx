@@ -85,7 +85,7 @@ function PhotoView({
         </div>
 
         <div className="mt-6 flex justify-center">
-          <DownloadButton url={photo.imageUrl} photoId={photo.id} />
+          <DownloadButton downloadUrl={photo.downloadUrl} />
         </div>
 
         <FooterNote />
@@ -167,8 +167,7 @@ function PhotoCell({ photo }: { photo: NonNullable<PublicShareResponse['photo']>
       )}
       <div className="px-1">
         <DownloadButton
-          url={photo.imageUrl}
-          photoId={photo.id}
+          downloadUrl={photo.downloadUrl}
           className="font-pretendard text-xs text-primary hover:opacity-70 transition-opacity"
         />
       </div>

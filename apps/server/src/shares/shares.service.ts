@@ -155,6 +155,78 @@ export class SharesService {
   }
 
   /**
+   * 외부 사용자 다운로드 — Phase 3 5.2 D5.
+   *
+   * Token 검증 + photoId가 share 범위에 속하는지 + strip 정책 적용 후 R2 buffer 반환.
+   * Controller가 Content-Disposition 헤더 박고 buffer.send → 강제 다운로드.
+   *
+   * R2 CORS 우회 (참조 admin-data-center 패턴 일관) — 백엔드가 R2 GET + 클라이언트에
+   * stream. 비밀번호 보호 share라도 본 endpoint 자체는 token만으로 검증.
+   * 외부 사용자가 unlock 후 받은 downloadUrl을 활용 가정.
+   *
+   * @throws NotFoundException 토큰/사진 없음 또는 share 범위 밖
+   * @throws GoneException 만료
+   */
+  async getDownloadFile(
+    token: string,
+    photoId: string,
+  ): Promise<{ buffer: Buffer; filename: string; contentType: string }> {
+    const share = await this.findActiveShareOrThrow(token);
+
+    // photoId가 share 범위 내인지 검증
+    if (share.target === ShareTarget.PHOTO) {
+      if (share.targetId !== photoId) {
+        throw new NotFoundException('사진을 찾을 수 없습니다');
+      }
+    } else {
+      // ShareTarget.MOMENT — photo가 그 moment 안에 있는지
+      const photo = await this.photosService.findPhotoByIdAndUserId(photoId, share.ownerId);
+      if (!photo || photo.momentId !== share.targetId) {
+        throw new NotFoundException('사진을 찾을 수 없습니다');
+      }
+    }
+
+    // strip 정책 적용 — 5.2 흐름 그대로 (Lazy 생성 + R2 캐싱)
+    const variant = this.policyToVariant(share.exifStripPolicy);
+    const result = await this.photosService.findPhotoForShare(photoId, variant);
+    if (!result) {
+      throw new NotFoundException('사진을 찾을 수 없습니다');
+    }
+
+    // imageUrl이 가리키는 R2 key를 다시 추출 — 또는 PhotosService에서 key 직접 받아야
+    // findPhotoForShare가 key 안 노출 → 별도 helper 호출 또는 직접 buffer 발급 필요
+    // 단순 — PhotosService에 download buffer 신규 메서드 또는 R2 직접 호출
+    const buffer = await this.photosService.getShareImageBuffer(photoId, variant);
+    if (!buffer) {
+      throw new NotFoundException('사진을 찾을 수 없습니다');
+    }
+
+    const ext = this.extractExt(result.photo.originalKey);
+    const contentType = this.extToMime(ext);
+    const filename = `trailog-${photoId.slice(0, 8)}.${ext}`;
+
+    return { buffer, filename, contentType };
+  }
+
+  /** R2 key의 마지막 확장자 추출 — 소문자 */
+  private extractExt(key: string): string {
+    const dot = key.lastIndexOf('.');
+    return dot === -1 ? 'jpg' : key.slice(dot + 1).toLowerCase();
+  }
+
+  /** 확장자 → MIME type (다운로드 응답 헤더용) */
+  private extToMime(ext: string): string {
+    const map: Record<string, string> = {
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg',
+      png: 'image/png',
+      heic: 'image/heic',
+      webp: 'image/webp',
+    };
+    return map[ext] ?? 'application/octet-stream';
+  }
+
+  /**
    * 비밀번호 보호 share unlock — bcrypt 비교 후 정상 응답.
    *
    * 실패: UnauthorizedException(401).
@@ -226,7 +298,12 @@ export class SharesService {
         target: share.target,
         exifStripPolicy: share.exifStripPolicy,
         expiresAt: share.expiresAt?.toISOString() ?? null,
-        photo: this.toPublicPhotoDto(result.photo, result.imageUrl, share.exifStripPolicy),
+        photo: this.toPublicPhotoDto(
+          result.photo,
+          result.imageUrl,
+          share.exifStripPolicy,
+          share.token,
+        ),
         moment: null,
       };
     }
@@ -250,7 +327,7 @@ export class SharesService {
         startedAt: moment.startedAt?.toISOString() ?? null,
         endedAt: moment.endedAt?.toISOString() ?? null,
         photos: photos.map((p) =>
-          this.toPublicPhotoDto(p.photo, p.imageUrl, share.exifStripPolicy),
+          this.toPublicPhotoDto(p.photo, p.imageUrl, share.exifStripPolicy, share.token),
         ),
       } satisfies PublicMomentDto,
     };
@@ -280,17 +357,29 @@ export class SharesService {
     photo: import('../photos/photo.entity').Photo,
     imageUrl: string,
     policy: ExifStripPolicy,
+    token: string,
   ): PublicPhotoDto {
     const includeLocation = policy === ExifStripPolicy.NONE;
     return {
       id: photo.id,
       imageUrl,
+      downloadUrl: this.buildDownloadUrl(token, photo.id),
       takenAt: photo.takenAt?.toISOString() ?? null,
       location:
         includeLocation && photo.location
           ? { latitude: photo.location.coordinates[1], longitude: photo.location.coordinates[0] }
           : null,
     };
+  }
+
+  /**
+   * 백엔드 proxy 다운로드 URL — 외부 사용자 브라우저가 호출.
+   * Content-Disposition: attachment 헤더로 강제 다운로드. R2 CORS 우회.
+   * dev: http://localhost:4000 / 운영: BACKEND_PUBLIC_URL 환경변수.
+   */
+  private buildDownloadUrl(token: string, photoId: string): string {
+    const base = process.env.BACKEND_PUBLIC_URL ?? 'http://localhost:4000';
+    return `${base}/shares/public/${token}/download/${photoId}`;
   }
 
   /** target이 본인 소유인지 검증 */

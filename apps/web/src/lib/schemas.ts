@@ -13,6 +13,7 @@ export const ExifStripPolicySchema = z.enum(['all', 'gps_only', 'none']);
 export const PublicPhotoSchema = z.object({
   id: z.string(),
   imageUrl: z.string(),
+  downloadUrl: z.string(), // 백엔드 proxy 다운로드 URL (Phase 3 5.2 D5)
   takenAt: z.string().nullable(),
   location: z
     .object({

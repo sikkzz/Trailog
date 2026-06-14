@@ -213,6 +213,29 @@ export class PhotosService {
   }
 
   /**
+   * 외부 사용자 다운로드용 buffer (Phase 3 5.2 D5).
+   *
+   * Share Controller에서 호출 — R2 GET → buffer 반환.
+   * variant 적용 — 'none'은 원본 활용, 'all'/'gps_only'는 strip 파일.
+   * strip 흐름은 Lazy 캐싱 (findPhotoForShare 호출 시 자동).
+   *
+   * @returns buffer (없으면 null)
+   */
+  async getShareImageBuffer(
+    photoId: string,
+    variant: ExifStripVariant | null,
+  ): Promise<Buffer | null> {
+    const photo = await this.photoRepo.findOne({ where: { id: photoId } });
+    if (!photo) return null;
+
+    // strip 정책 적용 (variant null이면 원본 활용)
+    const key =
+      variant === null ? photo.originalKey : await this.getOrCreateStrippedKey(photo, variant);
+
+    return this.r2Service.getObjectBuffer(key);
+  }
+
+  /**
    * 공유 페이지 표시용 image key 해석.
    *
    * - variant null → thumbnail large 우선 (없으면 original) — 5.1 패턴 유지

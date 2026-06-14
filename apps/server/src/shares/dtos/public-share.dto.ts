@@ -27,9 +27,16 @@ export class PublicPhotoDto {
 
   @ApiProperty({
     example: 'https://r2.cloudflarestorage.com/.../photo.jpg?X-Amz-...',
-    description: 'R2 presigned GET URL (15분 유효)',
+    description: 'R2 presigned GET URL (1시간 유효) — <img src>로 표시용',
   })
   imageUrl!: string;
+
+  @ApiProperty({
+    example: 'http://localhost:4000/shares/public/abc/download/xyz',
+    description:
+      '백엔드 proxy 다운로드 URL — Content-Disposition: attachment 강제. R2 CORS 우회 + 참조 패턴 일관 (admin-data-center 서버 단 stream).',
+  })
+  downloadUrl!: string;
 
   @ApiPropertyOptional({ example: '2026-04-15T13:25:00.000Z', nullable: true })
   takenAt!: string | null;
@@ -37,7 +44,7 @@ export class PublicPhotoDto {
   @ApiPropertyOptional({
     example: { latitude: 37.5665, longitude: 126.978 },
     nullable: true,
-    description: 'EXIF strip policy=all이면 null로 노출 (5.2 wave에서 본격 적용)',
+    description: 'EXIF strip policy=all/gps_only면 null로 노출 (5.2 wave)',
   })
   location!: { latitude: number; longitude: number } | null;
 }

@@ -22,6 +22,11 @@ import { R2Service } from './r2.service';
             accessKeyId: configService.getOrThrow<string>('R2_ACCESS_KEY_ID'),
             secretAccessKey: configService.getOrThrow<string>('R2_SECRET_ACCESS_KEY'),
           },
+          // R2 호환성 — AWS SDK v3.700+의 "Default integrity protections" 비활성.
+          // 활성 시 SDK가 자동으로 X-Amz-Checksum-Mode=ENABLED 박는데 R2 SigV4가
+          // 거부 (403 Forbidden). presigned URL fail이 본 옵션으로 해결.
+          requestChecksumCalculation: 'WHEN_REQUIRED',
+          responseChecksumValidation: 'WHEN_REQUIRED',
         }),
       inject: [ConfigService],
     },

@@ -62,22 +62,6 @@ export function formatExifPolicy(policy: ExifStripPolicy): string {
   }
 }
 
-/**
- * 사진 다운로드 — cross-origin presigned URL을 blob으로 받아 단말 저장.
- *
- * `<a download>` attribute는 cross-origin 시 동작 X — fetch + blob URL이 정답.
- * 단 R2 presigned URL의 CORS 헤더에 의존 — R2 dashboard CORS 설정 필요할 수도 (단 보통 OK).
- */
-export async function downloadPhoto(url: string, filename: string): Promise<void> {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error('다운로드 실패');
-  const blob = await res.blob();
-  const blobUrl = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = blobUrl;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(blobUrl);
-}
+// downloadPhoto 함수 폐기 (Phase 3 5.2 D5) — 백엔드 proxy URL로 직접 `<a href download>`
+// 클릭이 단순/정직. R2 cross-origin GET 403 회피 + 참조 admin-data-center 패턴 일관.
+// 자세한 흐름은 DownloadButton 컴포넌트 헤더 주석 참고.

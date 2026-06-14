@@ -1,73 +1,32 @@
-'use client';
-
-// DownloadButton — 사진 단말 저장 (Client Component).
+// DownloadButton — 사진 단말 저장 (Phase 3 5.2 D5).
 //
-// 본인 의도 "아카이빙" 핵심 — 외부 사용자가 자기 단말에 저장.
-// `<a download>` cross-origin 제한 회피 위해 fetch + blob URL 활용 (lib/format.downloadPhoto).
+// **2026-06-14 정정** — 기존 fetch + blob URL 흐름 폐기.
+// 백엔드 proxy URL을 단순 `<a href download>` 클릭 → 브라우저가 자동 다운로드.
 //
-// R2 presigned URL의 CORS 응답 헤더에 의존. R2 dashboard CORS 설정(`allowed_origins: *`)
-// 또는 Cloudflare R2 default 정책으로 보통 동작. 실패 시 안내.
-
-import { useState } from 'react';
-
-import { downloadPhoto } from '@/lib/format';
+// 백엔드 proxy 이유: R2 cross-origin GET이 403 Forbidden (Origin 박힌 요청
+// signature 검증 + CORS rule 적용 차이). 참조 패턴(admin-data-center 서버 단
+// stream + Content-Disposition: attachment) 일관 채택 — CORS 우회.
+//
+// Client Component인 이유: download attribute click event tracking 박을지 등
+// 폴리시 시점 inline handler 자유 — 현재는 단순 link.
 
 interface DownloadButtonProps {
-  url: string;
-  photoId: string;
+  downloadUrl: string;
   className?: string;
 }
 
-export function DownloadButton({ url, photoId, className }: DownloadButtonProps) {
-  const [downloading, setDownloading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleClick = async () => {
-    setDownloading(true);
-    setError(null);
-    try {
-      // 파일명 — photoId + 확장자 추정 (URL의 파일명에서 추출 시도, 실패 시 .jpg fallback)
-      const filename = inferFilename(url, photoId);
-      await downloadPhoto(url, filename);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '다운로드 실패');
-    } finally {
-      setDownloading(false);
-    }
-  };
-
+export function DownloadButton({ downloadUrl, className }: DownloadButtonProps) {
   return (
-    <>
-      <button
-        type="button"
-        onClick={handleClick}
-        disabled={downloading}
-        className={
-          className ??
-          'font-pretendard-semibold text-sm text-white bg-primary rounded-md px-4 py-2 hover:opacity-80 disabled:opacity-50 transition-opacity'
-        }
-      >
-        {downloading ? '저장 중...' : '단말 저장'}
-      </button>
-      {error && (
-        <p className="font-pretendard text-xs text-danger mt-1" role="alert">
-          {error}
-        </p>
-      )}
-    </>
+    <a
+      href={downloadUrl}
+      // download attribute — 브라우저 hint (백엔드 Content-Disposition이 정직 강제)
+      download
+      className={
+        className ??
+        'inline-block font-pretendard-semibold text-sm text-white bg-primary rounded-md px-4 py-2 hover:opacity-80 transition-opacity'
+      }
+    >
+      단말 저장
+    </a>
   );
-}
-
-/** URL의 path에서 파일명 추출 (예: `.../abc.jpg?X-Amz-...`). 실패 시 photoId.jpg fallback. */
-function inferFilename(url: string, photoId: string): string {
-  try {
-    const u = new URL(url);
-    const lastSegment = u.pathname.split('/').pop();
-    if (lastSegment && lastSegment.includes('.')) {
-      return `trailog-${photoId.slice(0, 8)}-${lastSegment}`;
-    }
-  } catch {
-    // URL parse 실패 — fallback
-  }
-  return `trailog-${photoId.slice(0, 8)}.jpg`;
 }

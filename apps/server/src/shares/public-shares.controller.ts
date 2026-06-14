@@ -8,8 +8,9 @@
 //
 // 응답은 PublicShareResponseDto — status 'locked'/'open'으로 분기.
 
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Res } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import type { Response } from 'express';
 
 import { PublicShareResponseDto, UnlockShareRequestDto } from './dtos/public-share.dto';
 import { SharesService } from './shares.service';
@@ -55,5 +56,40 @@ export class PublicSharesController {
     @Body() dto: UnlockShareRequestDto,
   ): Promise<PublicShareResponseDto> {
     return this.sharesService.unlockShare(token, dto.password);
+  }
+
+  /**
+   * GET /shares/public/:token/download/:photoId — 백엔드 proxy 다운로드 (Phase 3 5.2 D5).
+   *
+   * 참조 admin-data-center.service.ts 패턴 일관:
+   *   res.setHeader('Content-Disposition', 'attachment; filename*=UTF-8''...');
+   *   res.send(buffer);
+   *
+   * R2 CORS 우회 + 강제 다운로드 + 정직한 파일명 (한글 호환 RFC 5987).
+   * strip 정책 적용 — Lazy 생성된 변형 파일 또는 원본.
+   */
+  @Get(':token/download/:photoId')
+  @ApiOperation({
+    summary: '공유 사진 다운로드 (백엔드 proxy)',
+    description:
+      'R2 CORS 우회 + Content-Disposition: attachment 강제 다운로드. strip 정책 자동 적용.',
+  })
+  async downloadPhoto(
+    @Param('token') token: string,
+    @Param('photoId') photoId: string,
+    @Res() res: Response,
+  ): Promise<void> {
+    const { buffer, filename, contentType } = await this.sharesService.getDownloadFile(
+      token,
+      photoId,
+    );
+    // RFC 5987 — 한글 파일명 지원 (filename* 박음)
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`,
+    );
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Length', buffer.length.toString());
+    res.send(buffer);
   }
 }
