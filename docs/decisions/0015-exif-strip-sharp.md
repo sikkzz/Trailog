@@ -1,9 +1,77 @@
-# ADR-0015: EXIF strip — sharp 활용 (기존 의존성)
+# ADR-0015: EXIF strip — sharp + piexifjs (2026-06-14 보강)
 
-> **상태**: Accepted
-> **날짜**: 2026-06-09
+> **상태**: Accepted (2026-06-14 보강 — piexifjs 추가)
+> **날짜**: 2026-06-09 (초안) / 2026-06-14 (보강)
 > **결정자**: @sikkzz (with Claude)
 > **관련 문서**: [Phase 3 Spec](../specs/phase-03-sharing.md), [ADR-0007 R2 스토리지](./0007-image-storage-r2.md), [exif-and-photo-metadata 학습 노트](../learnings/exif-and-photo-metadata.md)
+
+---
+
+## ⚠️ 2026-06-14 보강 — sharp 한계 발견 + piexifjs 추가
+
+5.2 D3 구현 시점에 sharp `withExif()` 한계 발견:
+
+- **sharp `withExif(exif)` — raw EXIF buffer 전체 교체**. 한 키(GPS)만 제거 불가.
+- ExifReader 파싱 결과 → sharp withExif 입력 형식 변환은 복잡 (IFD0/IFD2/GPSIFD 등 raw).
+- sharp는 GPS-only strip 단독 API 없음.
+
+→ ADR-0015 초안 가정 "sharp `withExif()`로 GPS만 제거" 거짓. **`piexifjs` 추가** (27KB, JPEG/HEIC EXIF binary 직접 조작).
+
+### 정정된 결정 (2026-06-14)
+
+| variant                  | 도구          | 동작                                                                  |
+| ------------------------ | ------------- | --------------------------------------------------------------------- |
+| **all**                  | sharp default | 옵션 안 박으면 EXIF 자동 strip + re-encode                            |
+| **gps_only (JPEG/HEIC)** | piexifjs      | GPS IFD만 제거 (re-encode 불필요 + 나머지 EXIF 보존 + quality 무손실) |
+| **gps_only (PNG/WebP)**  | sharp default | EXIF 표준 X — sharp default strip fallback (사용자 의도 fit)          |
+
+### 구현 (apps/server/src/photos/photos.service.ts)
+
+```typescript
+private async stripExif(buffer: Buffer, variant: 'all' | 'gps_only', ext: string): Promise<Buffer> {
+  if (variant === 'all') {
+    return sharp(buffer).toBuffer();  // default strip
+  }
+  // gps_only
+  if (ext === 'jpg' || ext === 'jpeg' || ext === 'heic') {
+    return this.stripGpsWithPiexif(buffer);  // JPEG EXIF binary 조작
+  }
+  return sharp(buffer).toBuffer();  // PNG/WebP fallback
+}
+
+private stripGpsWithPiexif(buffer: Buffer): Buffer {
+  try {
+    const binary = buffer.toString('binary');
+    const exifObj = piexif.load(binary);
+    delete (exifObj as any).GPS;
+    const newExifBinary = piexif.dump(exifObj);
+    return Buffer.from(piexif.insert(newExifBinary, binary), 'binary');
+  } catch (err) {
+    this.logger.warn(`piexif failed, fallback to original: ${err}`);
+    return buffer;  // EXIF 없는 JPEG 등 — 안정성 우선
+  }
+}
+```
+
+### Lazy 생성 + R2 캐싱
+
+5.2 시점에 Photo entity에 `strippedKeys jsonb` 컬럼 추가 ({ all?, gps_only? }).
+외부 공유 첫 접근 시점에 strip + R2 PUT + DB jsonb merge. 두 번째 접근부터 캐시 즉시.
+
+### 추가 의존성 박제
+
+- `piexifjs` v2.x (dep) — 27KB, JPEG EXIF binary 직접 조작
+- `@types/piexifjs` (devDep) — type definitions
+
+### 본 ADR 초안의 가정 정정
+
+| 가정 (2026-06-09)                    | 실제 (2026-06-14)                            |
+| ------------------------------------ | -------------------------------------------- |
+| sharp `withExif()`로 GPS만 제거 가능 | ❌ raw buffer 전체 교체만 가능               |
+| sharp만으로 충분                     | ❌ piexifjs 추가 필수 (JPEG/HEIC `gps_only`) |
+| 새 lib 도입 X (기존 의존성 활용)     | 🔄 27KB 작은 lib 추가 (정직성 ↑)             |
+
+---
 
 ---
 

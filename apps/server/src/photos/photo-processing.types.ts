@@ -77,3 +77,39 @@ export function buildThumbnailKey(
 ): string {
   return `user/${userId}/moments/${momentId}/thumbs/${photoId}_${size}.webp`;
 }
+
+// =============================================================================
+// EXIF strip (Phase 3 5.2) — sharp `withExif()` 기반 lazy 생성
+// =============================================================================
+
+/**
+ * EXIF strip 정책 — Share 토큰에 박힌 정책에 따라 다른 strip 파일 활용.
+ * - all: 모든 EXIF 제거 (sharp default 동작)
+ * - gps_only: GPS 키만 제거 + 나머지 EXIF 보존 (사용자 친화 기본값)
+ * - none: 원본 그대로 (strip X — Photo.originalKey 활용)
+ *
+ * `none`은 strip 파일 X — 원본 활용. strip 대상은 `all` / `gps_only`만.
+ */
+export type ExifStripVariant = 'all' | 'gps_only';
+
+/**
+ * Photo entity `stripped_keys` jsonb 컬럼 형식 — variant별 R2 key 박힘.
+ * Lazy 생성 — 외부 접근 시점에 strip + R2 PUT + DB update.
+ * 둘 다 또는 한쪽만 박힘 가능 (호출된 정책만).
+ */
+export type PhotoStrippedKeys = Partial<Record<ExifStripVariant, string>>;
+
+/**
+ * R2 strip key 생성.
+ * 형식: `user/{userId}/moments/{momentId}/stripped/{photoId}_{variant}.{ext}`
+ * 원본 확장자 그대로 (jpg/heic 등) — sharp는 출력 포맷 명시 안 하면 입력 포맷 유지.
+ */
+export function buildStrippedKey(
+  userId: string,
+  momentId: string,
+  photoId: string,
+  variant: ExifStripVariant,
+  ext: string,
+): string {
+  return `user/${userId}/moments/${momentId}/stripped/${photoId}_${variant}.${ext}`;
+}

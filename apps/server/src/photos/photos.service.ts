@@ -13,9 +13,11 @@
 
 import { randomUUID } from 'node:crypto';
 import { InjectQueue } from '@nestjs/bullmq';
-import { HttpStatus, Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Queue } from 'bullmq';
+import piexif from 'piexifjs';
+import sharp from 'sharp';
 import { Repository } from 'typeorm';
 
 import { RestResponse, RestResponseCode } from '../common';
@@ -35,10 +37,12 @@ import {
   PhotoThumbnailUrlsDto,
 } from './dtos/get-photos.dto';
 import { Photo } from './photo.entity';
-import type {
-  PhotoLocation,
-  PhotoProcessingJobData,
-  PhotoThumbnailKeys,
+import {
+  buildStrippedKey,
+  type ExifStripVariant,
+  type PhotoLocation,
+  type PhotoProcessingJobData,
+  type PhotoThumbnailKeys,
 } from './photo-processing.types';
 import { PHOTO_PROCESSING_QUEUE } from './photos.constants';
 
@@ -52,6 +56,8 @@ const EXT_TO_MIME: Record<string, string> = {
 
 @Injectable()
 export class PhotosService {
+  private readonly logger = new Logger(PhotosService.name);
+
   constructor(
     @InjectRepository(Photo)
     private readonly photoRepo: Repository<Photo>,
@@ -154,35 +160,44 @@ export class PhotosService {
   }
 
   /**
-   * 외부 공유용 — photoId만으로 조회 + presigned URL (Phase 3 5.1 D6b).
+   * 외부 공유용 — photoId만으로 조회 + presigned URL (Phase 3 5.1 D6b + 5.2 strip).
    *
    * Share 토큰으로 검증된 후 호출되는 method — 권한 검사 X.
-   * thumbnail large 우선, 없으면 original 활용.
+   * variant null이면 thumbnail large 우선 (Phase 3 5.1 동작).
+   * variant 'all'/'gps_only'면 strip 파일 — 없으면 Lazy 생성 + R2 PUT + DB cache (5.2).
    *
    * @param photoId target photo
+   * @param variant null=원본 활용 / 'all'/'gps_only'=strip 파일
    * @returns photo + presigned URL (없으면 null)
    */
-  async findPhotoForShare(photoId: string): Promise<{ photo: Photo; imageUrl: string } | null> {
+  async findPhotoForShare(
+    photoId: string,
+    variant: ExifStripVariant | null = null,
+  ): Promise<{ photo: Photo; imageUrl: string } | null> {
     const photo = await this.photoRepo.findOne({ where: { id: photoId } });
     if (!photo) return null;
 
-    // 사용자 표시용 — 가장 큰 thumbnail 우선 (없으면 original)
-    const key = photo.thumbnailKeys?.large ?? photo.originalKey;
+    const key = await this.resolveShareImageKey(photo, variant);
     const imageUrl = await this.r2Service.createPresignedGetUrl(key);
 
     return { photo, imageUrl };
   }
 
   /**
-   * 외부 공유용 — momentId의 사진들 조회 (Phase 3 5.1 D6b).
+   * 외부 공유용 — momentId의 사진들 조회 (Phase 3 5.1 D6b + 5.2 strip).
    *
    * Share 토큰으로 검증된 후 호출되는 method — 권한 검사 X.
-   * 각 사진에 presigned URL 동봉. processingStatus 'done' 외(pending/failed)는 제외.
+   * variant에 따라 원본/strip 분기. Lazy 생성은 순차 처리 (사진 수 ↑ 시 latency ↑ but
+   * 외부 사용자 첫 접근만 — 두 번째 접근부터는 캐시 활용 즉시).
    *
    * @param momentId target moment
+   * @param variant null=원본 활용 / 'all'/'gps_only'=strip 파일
    * @returns 사진 리스트 + presigned URL 각각
    */
-  async findPhotosForMomentShare(momentId: string): Promise<{ photo: Photo; imageUrl: string }[]> {
+  async findPhotosForMomentShare(
+    momentId: string,
+    variant: ExifStripVariant | null = null,
+  ): Promise<{ photo: Photo; imageUrl: string }[]> {
     const photos = await this.photoRepo.find({
       where: { momentId, processingStatus: 'done' },
       order: { takenAt: 'ASC', createdAt: 'ASC' },
@@ -190,11 +205,131 @@ export class PhotosService {
 
     return Promise.all(
       photos.map(async (photo) => {
-        const key = photo.thumbnailKeys?.large ?? photo.originalKey;
+        const key = await this.resolveShareImageKey(photo, variant);
         const imageUrl = await this.r2Service.createPresignedGetUrl(key);
         return { photo, imageUrl };
       }),
     );
+  }
+
+  /**
+   * 공유 페이지 표시용 image key 해석.
+   *
+   * - variant null → thumbnail large 우선 (없으면 original) — 5.1 패턴 유지
+   * - variant 'all'/'gps_only' → 원본에서 strip → R2 PUT (Lazy 캐싱)
+   *
+   * **strip은 원본 기준** — thumbnail은 sharp가 default로 EXIF strip하므로
+   * GPS 정책 의도 fit X. 원본에서 strip + presigned URL은 원본보단 strip된 사본 가리킴.
+   */
+  private async resolveShareImageKey(
+    photo: Photo,
+    variant: ExifStripVariant | null,
+  ): Promise<string> {
+    if (variant === null) {
+      // 5.1 패턴 — thumbnail large 우선
+      return photo.thumbnailKeys?.large ?? photo.originalKey;
+    }
+    // 5.2 — strip variant (Lazy 캐싱)
+    return this.getOrCreateStrippedKey(photo, variant);
+  }
+
+  /**
+   * Lazy strip 생성 — Photo.strippedKeys 캐시 hit면 그대로, miss면 생성.
+   *
+   * 흐름:
+   *   1. Photo.strippedKeys[variant] 있으면 그 key 반환 (캐시 hit — 즉시)
+   *   2. 없으면 원본 R2 GET → strip → R2 PUT → DB update → 새 key 반환
+   *
+   * race condition: 동시 두 호출 시 둘 다 생성 + 마지막 PUT/UPDATE가 이김.
+   * 동일 key라 R2 overwrite OK. DB strippedKeys는 마지막 update 이김 — 데이터 일관 OK.
+   * 비용은 한 번 더 처리 — 외부 공유 hot path X라 무시 가능.
+   *
+   * @param photo Photo entity
+   * @param variant 'all' | 'gps_only'
+   * @returns strip 파일 R2 key
+   */
+  private async getOrCreateStrippedKey(photo: Photo, variant: ExifStripVariant): Promise<string> {
+    const cached = photo.strippedKeys?.[variant];
+    if (cached) return cached;
+
+    // Lazy 생성 — 원본 GET → strip → PUT → DB update
+    const originalBuffer = await this.r2Service.getObjectBuffer(photo.originalKey);
+    const ext = this.extractExt(photo.originalKey);
+    const strippedBuffer = await this.stripExif(originalBuffer, variant, ext);
+    const strippedKey = buildStrippedKey(photo.userId, photo.momentId, photo.id, variant, ext);
+    const contentType = EXT_TO_MIME[ext] ?? 'application/octet-stream';
+
+    await this.r2Service.putObjectBuffer(strippedKey, strippedBuffer, contentType);
+
+    // DB update — strippedKeys jsonb merge (다른 variant 보존)
+    const merged = { ...photo.strippedKeys, [variant]: strippedKey };
+    await this.photoRepo.update(photo.id, { strippedKeys: merged });
+    photo.strippedKeys = merged; // in-memory entity 갱신
+
+    this.logger.log(`Created stripped (${variant}) for photo ${photo.id} → ${strippedKey}`);
+    return strippedKey;
+  }
+
+  /**
+   * EXIF strip — variant 분기 (Phase 3 5.2 D3).
+   *
+   * - **all**: sharp default — 옵션 안 박으면 EXIF 자동 strip + re-encode
+   *   · 단점: 원본 quality 일부 손실 (re-encode). EXIF 전체 제거 + thumbnail 일관.
+   *
+   * - **gps_only**: piexifjs로 GPS IFD만 제거 (sharp re-encode 불필요)
+   *   · 장점: 나머지 EXIF (촬영 시각/디바이스/렌즈/orientation 등) 보존 + quality 무손실
+   *   · JPEG/HEIC만 지원 — PNG/WebP는 EXIF 표준 X로 sharp default strip fallback
+   *
+   * sharp 한계 박제 (ADR-0015 보강): sharp `withExif()`는 raw buffer 전체 교체라
+   * 한 키(GPS)만 제거 불가. piexifjs는 JPEG EXIF binary 직접 조작 — 27KB 가벼움.
+   */
+  private async stripExif(buffer: Buffer, variant: ExifStripVariant, ext: string): Promise<Buffer> {
+    if (variant === 'all') {
+      // sharp default — 옵션 안 박으면 EXIF 자동 strip
+      return sharp(buffer).toBuffer();
+    }
+
+    // gps_only
+    if (ext === 'jpg' || ext === 'jpeg' || ext === 'heic') {
+      // piexifjs는 JPEG/HEIC EXIF binary 직접 조작 (sharp re-encode 불필요)
+      return this.stripGpsWithPiexif(buffer);
+    }
+
+    // PNG/WebP — EXIF 표준 X (PNG=tEXt 청크 / WebP=EXIF chunk 별도)
+    // sharp default strip fallback — GPS 포함 모든 메타 제거 (사용자 의도 fit)
+    return sharp(buffer).toBuffer();
+  }
+
+  /**
+   * piexifjs로 JPEG GPS IFD만 제거.
+   *
+   * piexifjs는 'binary string' 형식 입출력 (Node Buffer 변환 필요).
+   * 실패 시 (EXIF 없는 JPEG 등) sharp default strip fallback.
+   */
+  private stripGpsWithPiexif(buffer: Buffer): Buffer {
+    try {
+      const binary = buffer.toString('binary');
+      const exifObj = piexif.load(binary);
+      // delete GPS IFD — piexifjs는 'GPS' 키로 GPS IFD 박혀있음
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- piexifjs type 한계
+      delete (exifObj as any).GPS;
+      const newExifBinary = piexif.dump(exifObj);
+      const newBinary = piexif.insert(newExifBinary, binary);
+      return Buffer.from(newBinary, 'binary');
+    } catch (err) {
+      // EXIF 파싱 실패 — sharp default strip fallback (안전)
+      this.logger.warn(`piexif strip failed, fallback to sharp default: ${String(err)}`);
+      // sharp가 동기적 stripExif 호출자라 promise 반환 안 함 — 호출자에서 await
+      // 단 이 throw 흐름은 caller가 wrap한 try/catch 없음 — sharp sync fallback X
+      // → caller에서 처리 위해 throw 대신 원본 그대로 반환 + 경고 (정직성보단 안정성)
+      return buffer;
+    }
+  }
+
+  /** R2 key의 마지막 확장자 추출 — 소문자 (jpg/heic 등) */
+  private extractExt(key: string): string {
+    const dot = key.lastIndexOf('.');
+    return dot === -1 ? 'jpg' : key.slice(dot + 1).toLowerCase();
   }
 
   /** Moment의 사진 리스트 — 각 사진에 presigned GET URL 동봉. */

@@ -205,10 +205,19 @@ export class SharesService {
     };
   }
 
-  /** 정상 — target 분기로 photo/moment 데이터 응답 */
+  /**
+   * 정상 — target 분기로 photo/moment 데이터 응답.
+   *
+   * **5.2 변경**: share.exifStripPolicy를 strip variant로 변환해서 PhotosService에 전달.
+   * - policy 'none' → variant null (원본/thumbnail 활용 — 5.1 패턴)
+   * - policy 'all' → variant 'all' (Lazy strip)
+   * - policy 'gps_only' → variant 'gps_only' (Lazy strip)
+   */
   private async buildOpenResponse(share: Share): Promise<PublicShareResponseDto> {
+    const variant = this.policyToVariant(share.exifStripPolicy);
+
     if (share.target === ShareTarget.PHOTO) {
-      const result = await this.photosService.findPhotoForShare(share.targetId);
+      const result = await this.photosService.findPhotoForShare(share.targetId, variant);
       if (!result) {
         throw new NotFoundException('사진을 찾을 수 없습니다');
       }
@@ -227,7 +236,7 @@ export class SharesService {
     if (!moment) {
       throw new NotFoundException('Moment를 찾을 수 없습니다');
     }
-    const photos = await this.photosService.findPhotosForMomentShare(share.targetId);
+    const photos = await this.photosService.findPhotosForMomentShare(share.targetId, variant);
 
     return {
       status: 'open',
@@ -245,6 +254,16 @@ export class SharesService {
         ),
       } satisfies PublicMomentDto,
     };
+  }
+
+  /**
+   * EXIF strip 정책 → PhotosService variant.
+   * 'none'은 strip 파일 X — null 반환해 원본/thumbnail 활용.
+   */
+  private policyToVariant(policy: ExifStripPolicy): 'all' | 'gps_only' | null {
+    if (policy === ExifStripPolicy.NONE) return null;
+    if (policy === ExifStripPolicy.ALL) return 'all';
+    return 'gps_only';
   }
 
   /**

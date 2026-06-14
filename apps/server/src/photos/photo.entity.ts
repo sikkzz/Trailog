@@ -39,6 +39,7 @@ import { User } from '../users/user.entity';
 import type {
   PhotoLocation,
   PhotoProcessingStatus,
+  PhotoStrippedKeys,
   PhotoThumbnailKeys,
 } from './photo-processing.types';
 
@@ -124,6 +125,15 @@ export class Photo {
     comment: '원본 EXIF metadata 보존 — 미래 새 필드 추출 시 reprocess 없이 활용 (Phase 2 4.5)',
   })
   exifJson!: Record<string, unknown> | null;
+
+  @Column({
+    name: 'stripped_keys',
+    type: 'jsonb',
+    nullable: true,
+    comment:
+      'EXIF strip 파일 R2 keys — {all?: key, gps_only?: key} lazy 생성 (Phase 3 5.2). 외부 공유 접근 시점에 정책별 생성 + 캐싱',
+  })
+  strippedKeys!: PhotoStrippedKeys | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
