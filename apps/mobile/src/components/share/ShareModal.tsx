@@ -263,25 +263,15 @@ export function ShareModal({ visible, onClose, target, targetId }: ShareModalPro
               </Pressable>
 
               {/* 링크 복사 — primary outline (공유하기보다 한 단계 약한 시각) */}
+              {/* 닫기 버튼은 박지 않음 — 외부 탭 + grabber + Android back button으로 dismiss 박힘 (네이티브 친화) */}
               <Pressable
                 onPress={handleCopyLink}
-                className="border-2 border-primary rounded-md py-3 items-center active:opacity-70 mb-2"
+                className="border-2 border-primary rounded-md py-3 items-center active:opacity-70"
                 accessibilityRole="button"
                 accessibilityLabel="링크 복사"
                 accessibilityHint="공유 URL을 클립보드에 복사"
               >
                 <Text className="font-pretendard-semibold text-base text-primary">링크 복사</Text>
-              </Pressable>
-
-              <Pressable
-                onPress={handleClose}
-                className="py-3.5 items-center active:opacity-70"
-                accessibilityRole="button"
-                accessibilityLabel="닫기"
-              >
-                <Text className="font-pretendard-medium text-base text-text-secondary dark:text-text-secondary-dark">
-                  닫기
-                </Text>
               </Pressable>
             </>
           )}
