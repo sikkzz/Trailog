@@ -9,6 +9,7 @@
 // 디자인 — RN built-in Modal + NativeWind. 별도 lib 도입 X (단순함 우선).
 // Bottom Sheet 같은 폴리시는 4.9 또는 종료 후 wave에서 검토.
 
+import * as Clipboard from 'expo-clipboard';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -89,6 +90,18 @@ export function ShareModal({ visible, onClose, target, targetId }: ShareModalPro
     } catch (e) {
       // 사용자가 공유 시트 dismiss — silent
       void e;
+    }
+  };
+
+  const handleCopyLink = async () => {
+    if (!createdUrl) return;
+    try {
+      await Clipboard.setStringAsync(createdUrl);
+      // 단순 Alert — Toast는 RN 별도 lib 필요 (5.4 폴리시에 검토)
+      Alert.alert('복사됨', '공유 링크가 클립보드에 복사됐어요.');
+    } catch (e) {
+      const message = e instanceof Error ? e.message : '복사 실패';
+      Alert.alert('복사 실패', message);
     }
   };
 
@@ -247,6 +260,17 @@ export function ShareModal({ visible, onClose, target, targetId }: ShareModalPro
                 accessibilityHint="시스템 공유 시트로 URL 보내기"
               >
                 <Text className="font-pretendard-semibold text-base text-white">공유하기</Text>
+              </Pressable>
+
+              {/* 링크 복사 — primary outline (공유하기보다 한 단계 약한 시각) */}
+              <Pressable
+                onPress={handleCopyLink}
+                className="border-2 border-primary rounded-md py-3 items-center active:opacity-70 mb-2"
+                accessibilityRole="button"
+                accessibilityLabel="링크 복사"
+                accessibilityHint="공유 URL을 클립보드에 복사"
+              >
+                <Text className="font-pretendard-semibold text-base text-primary">링크 복사</Text>
               </Pressable>
 
               <Pressable
