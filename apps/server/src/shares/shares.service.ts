@@ -28,6 +28,7 @@ import { LessThan, MoreThan, Repository, type FindOptionsWhere } from 'typeorm';
 
 import { RestResponse } from '../common';
 import { MomentsService } from '../moments/moments.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { PhotosService } from '../photos/photos.service';
 
 import { CreateShareRequestDto, CreateShareResponseDto } from './dtos/create-share.dto';
@@ -41,13 +42,25 @@ const BCRYPT_ROUNDS = 10;
 /** nanoid 토큰 길이 — ADR-0014 (21자, default) */
 const TOKEN_LENGTH = 21;
 
+/**
+ * share.viewed 알림 throttle 간격 (ms).
+ * 같은 share에 대해 이 간격 내 반복 조회는 알림 발행 X — owner 스팸 방지.
+ * 5분 = 짧은 방문 세션 안에서 반복 조회를 자연스럽게 묶음.
+ * Phase 4 다중 인스턴스 환경에선 Redis SETEX로 이전 (메모리 sse-phase4-enhancements-revisit).
+ */
+const SHARE_VIEWED_THROTTLE_MS = 5 * 60 * 1000;
+
 @Injectable()
 export class SharesService {
+  /** 마지막 share.viewed 발행 시각 — shareId → epoch ms. in-memory 휘발 (단일 인스턴스 가정) */
+  private readonly lastViewedEmit = new Map<string, number>();
+
   constructor(
     @InjectRepository(Share)
     private readonly shareRepo: Repository<Share>,
     private readonly momentsService: MomentsService,
     private readonly photosService: PhotosService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   /**
@@ -146,11 +159,12 @@ export class SharesService {
   async findPublicByToken(token: string): Promise<PublicShareResponseDto> {
     const share = await this.findActiveShareOrThrow(token);
 
-    // 비밀번호 보호 → locked 응답 (데이터 X)
+    // 비밀번호 보호 → locked 응답 (데이터 X). 실제 조회 X → viewed 발행 X
     if (share.passwordHash !== null) {
       return this.buildLockedResponse(share);
     }
 
+    this.emitViewedIfNeeded(share);
     return this.buildOpenResponse(share);
   }
 
@@ -236,6 +250,7 @@ export class SharesService {
 
     if (share.passwordHash === null) {
       // 비밀번호 안 박힌 share에 unlock 시도 → 일반 조회와 같음
+      this.emitViewedIfNeeded(share);
       return this.buildOpenResponse(share);
     }
 
@@ -244,7 +259,29 @@ export class SharesService {
       throw new UnauthorizedException('비밀번호가 올바르지 않습니다');
     }
 
+    this.emitViewedIfNeeded(share);
     return this.buildOpenResponse(share);
+  }
+
+  /**
+   * share.viewed 알림 발행 — 5분 throttle. 같은 share 반복 조회는 owner 스팸이 되므로
+   * 마지막 발행 후 SHARE_VIEWED_THROTTLE_MS 안엔 skip.
+   *
+   * in-memory Map — 단일 인스턴스 가정. Phase 4 ECS 이동 시 Redis SETEX로 이전.
+   */
+  private emitViewedIfNeeded(share: Share): void {
+    const now = Date.now();
+    const last = this.lastViewedEmit.get(share.id);
+    if (last && now - last < SHARE_VIEWED_THROTTLE_MS) {
+      return;
+    }
+    this.lastViewedEmit.set(share.id, now);
+    this.notificationsService.publish(share.ownerId, {
+      type: 'share.viewed',
+      shareId: share.id,
+      target: share.target,
+      targetId: share.targetId,
+    });
   }
 
   // ============================================================================

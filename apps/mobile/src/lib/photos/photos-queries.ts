@@ -25,23 +25,16 @@ export const photosKeys = {
 /**
  * Moment의 사진 리스트 query.
  *
- * **자동 polling** — 사진 중 processingStatus='pending'이 하나라도 있으면 3초마다 refetch.
- * 모두 'done'/'failed'면 polling 정지 (`refetchInterval: false`).
- *
- * 패턴: TanStack Query `refetchInterval`에 함수 전달 — query.state.data 기준 동적 결정.
- * 학습 포인트 — Polling 대안:
- *   - SSE/WebSocket (Phase 후속) — 백엔드 push, 더 효율
- *   - polling은 단순/안정 — 처리 시간 짧을 때(~수초) 적합
+ * **Phase 3 5.3 — polling → SSE 마이그레이션**:
+ * 이전엔 `refetchInterval`로 pending 사진 3초마다 폴링. SSE 도입 후 백엔드가
+ * `photo.processed` 이벤트 push → `useNotificationsStream`이 invalidate 트리거.
+ * → refetchInterval 제거, React Query staleTime 기본값 유지.
  */
 export function useMomentPhotos(momentId: string) {
   return useQuery({
     queryKey: photosKeys.list(momentId),
     queryFn: () => getMomentPhotos(momentId),
     enabled: Boolean(momentId),
-    refetchInterval: (query) => {
-      const hasPending = query.state.data?.photos.some((p) => p.processingStatus === 'pending');
-      return hasPending ? 3000 : false;
-    },
   });
 }
 

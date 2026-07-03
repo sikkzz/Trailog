@@ -15,6 +15,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { MomentsModule } from '../moments/moments.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { PhotosModule } from '../photos/photos.module';
 
 import { PublicSharesController } from './public-shares.controller';
@@ -23,7 +24,7 @@ import { SharesController } from './shares.controller';
 import { SharesService } from './shares.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Share]), MomentsModule, PhotosModule],
+  imports: [TypeOrmModule.forFeature([Share]), MomentsModule, PhotosModule, NotificationsModule],
   providers: [SharesService],
   controllers: [SharesController, PublicSharesController],
   exports: [SharesService],

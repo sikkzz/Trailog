@@ -22,6 +22,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { AuthModule } from '../auth/auth.module';
 import { MomentsModule } from '../moments/moments.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { R2Module } from '../r2/r2.module';
 
 import { PhotoProcessingProcessor } from './photo-processing.processor';
@@ -36,6 +37,7 @@ import { PhotosService } from './photos.service';
     TypeOrmModule.forFeature([Photo]),
     AuthModule,
     MomentsModule,
+    NotificationsModule,
     R2Module,
     BullModule.forRootAsync({
       imports: [ConfigModule],

@@ -5,6 +5,7 @@ import { DatabaseModule } from './database/database.module';
 import { GeocodingModule } from './geocoding/geocoding.module';
 import { HealthModule } from './health/health.module';
 import { MomentsModule } from './moments/moments.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { PhotosModule } from './photos/photos.module';
 import { SharesModule } from './shares/shares.module';
 import { UsersModule } from './users/users.module';
@@ -23,6 +24,7 @@ import { UsersModule } from './users/users.module';
     PhotosModule,
     GeocodingModule,
     SharesModule,
+    NotificationsModule,
   ],
 })
 export class AppModule {}
