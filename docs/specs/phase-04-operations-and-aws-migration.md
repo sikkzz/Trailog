@@ -1,9 +1,17 @@
-# Phase 4: 운영 강화 + AWS ECS 마이그레이션 Spec
+# Phase 4: 운영 강화 + AWS ECS 마이그레이션 Spec (보류 — 2차 확장 후보)
 
-> **상태**: Draft (2026-07-03 작성 — Phase 3 종료 직후 진입 준비)
+> **상태**: 🅿️ Deferred (2026-07-04 — 1차 마무리 스코프에서 제외 결정, 2차 확장 후보로 박제)
 > **작성일**: 2026-07-03
 > **작성**: Claude (프롬프팅: @sikkzz)
-> **관련 문서**: [PROJECT_ROOT 6장 Phase 4 로드맵](../PROJECT_ROOT.md#6-단계별-로드맵), [ADR-0002 하이브리드 인프라](../decisions/0002-hybrid-infra-paas-then-aws-ecs.md), [ADR-0004 Fly.io PaaS](../decisions/0004-paas-tool-flyio.md), [Phase 3 Spec](./phase-03-sharing.md)
+> **관련 문서**: [ADR-0017 1차 마무리 시점](../decisions/0017-first-milestone-scope.md), [PROJECT_ROOT 6장 Phase 4 로드맵](../PROJECT_ROOT.md#6-단계별-로드맵), [ADR-0002 하이브리드 인프라](../decisions/0002-hybrid-infra-paas-then-aws-ecs.md), [ADR-0004 Fly.io PaaS](../decisions/0004-paas-tool-flyio.md), [Phase 3 Spec](./phase-03-sharing.md)
+>
+> **보류 사유**: 1차 마무리 결정 시점(2026-07-04) 정직 판단 결과 —
+>
+> 1. **스토어 배포 실비 트레이드오프** (Apple Developer $99/년 + Google Play $25, 실 사용자 확보 계획 없어 부담 정당화 어려움)
+> 2. **AWS 마이그레이션은 실 트래픽 있어야 실감** (관측 metric, 비용 최적화 학습이 트래픽 없이 오버킬)
+> 3. **학습 영역 #1(인프라) 이미 1차 정복 완료** (Phase 1 Fly.io + Docker + GitHub Actions + Notion sync). 2차 정복(AWS 실무 스택)은 별도 프로젝트급 스토리로 미룸.
+>
+> 재활성 트리거: 실 사용자 확보/유료화 결정 / 회사 이관/실무 이전 / 2차 wave 착수 결정.
 
 ---
 
